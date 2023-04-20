@@ -1,6 +1,6 @@
 # Neptune Gremlin Client
 
-A Java Gremlin client for Amazon Neptune that allows you to change the endpoints used by the client as it is running. Includes an endpoint refresh agent that can get cluster topology details, and update the client on a periodic basis. You can supply your own custom endpoint selectors to configure the client for a subset of instances in your cluster based on tags, instance types, instance IDs, AZs, etc.
+A Java Gremlin client for Amazon Neptune that allows you to change the endpoints used by the client as it is running. Includes an endpoint refresh agent that can get cluster topology details, and update the client on a periodic basis. You can supply your own custom endpoint selectors to configure the client for a subset of instances in your cluster based on tags, instance types, instance IDs, Availability Zones, etc.
 
 The client also provides support for connecting to Neptune via a proxy such as a network or application load balancer, as an alternative to using an endpoint refresh agent and custom endpoint selectors.
 
@@ -49,11 +49,24 @@ client.close();
 cluster.close();
 ```
 
-## Menu
+## Dependencies
+
+### Maven
+
+```
+<dependency>
+    <groupId>software.amazon.neptune</groupId>
+    <artifactId>gremlin-client</artifactId>
+    <version>1.0.8</version>
+</dependency>
+```
+
+## Table of Contents
 
   - [Overview](#overview)
     - [Distributing requests across an Amazon Neptune cluster](#distributing-requests-across-an-amazon-neptune-cluster)
   - [Creating a GremlinCluster and GremlinClient](#creating-a-gremlincluster-and-gremlinclient)
+    - [Configuration](#configuration)
   - [Using a ClusterEndpointsRefreshAgent](#using-a-clusterendpointsrefreshagent)
     - [Using an AWS Lambda proxy to retrieve cluster topology](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology)
       - [Installing the neptune-endpoints-info AWS Lambda function](#installing-the-neptune-endpoints-info-aws-lambda-function)
@@ -143,6 +156,18 @@ client.refreshEndpoints("new-replica-endpoint-1", "new-replica-endpoint-2", "new
 You can also use a `ClusterEndpointsRefreshAgent` to update the endpoints automatically on a periodic basis.
 
 Because the cluster topology can change at any moment as a result of both planned and unplanned events, you should [wrap all queries with an exception handler](##backoff-and-retry). Should a query fail because the underlying client connection has been closed, you can attempt a retry.
+
+### Configuration
+
+Most of the best practices for [using the TinkerPop Gremlin Java client with Amazon Neptune](#https://docs.aws.amazon.com/neptune/latest/userguide/best-practices-gremlin-java-client.html) apply to the Neptune Gremlin Client.
+
+One importnat point to note is that with the Neptune Gremlin Client, all connection and connection pool settings specified using the `NeptuneGremlinClusterBuilder` apply on a _per endpoint_ basis. For example, if you configure the `NeptuneGremlinClusterBuilder` with three endpoints, then it will create a client with three connection pools. Each connection pool will be configured separaetly with connection pool settings specified using the `NeptuneGremlinClusterBuilder`.
+
+Old versions of the TinkerPop Gremlin Java client configured with a `minConnectionPoolSize` smaller than the `maxConnectionPoolSize` could sometimes appear to hang if they needed to add a new connection to the pool to handle an increase in traffic. If the thread used to schedule the creation of a new connection was alreadyt occupied doing other work, the new connection would never be created, and the client would be slow to make forward progress. To mitigate this, we used to recommend configuring the client with `minConnectionPoolSize` equal to `maxConnectionPoolSize`, so that all connections in the pool were created eagerly.
+
+This issue has been addressed in newer versions of the TinkerPop Gremlin Java client (on which the Neptune Gremlin Client depends), so the former advice no longer applies. Consider setting `minConnectionPoolSize` (per endpoint) to accomodate your steady traffic, and `maxConnectionPoolSize` the peak in your traffic. The exact values will depend on your workload, and may require some experimentation. If in doubt, leave the builder to use the default values (`2` and `8` respectively).
+
+If you are using the Neptune Gremlin Client in an AWS Lambda function, consider setting both `minConnectionPoolSize` and `maxConnectionPoolSize` to `1`. Because concurrent client requests to your Lambda fucntions are handled by different function instances running in separate execution contexts, there's no need to maintain a pool of connections to handle concurrent requests inside each function instance.
 
 ## Using a ClusterEndpointsRefreshAgent
 
@@ -597,12 +622,10 @@ As a good practice you should consider implementing a backoff and retry strategy
   - `ConstraintViolationException` – This can sometimes occur if you attempt to create an edge between vertices that have only recently been committed. If one or other of the vertices is not yet visible to the current transaction, a `ConstraintViolationException` can occur. You can retry the query in the expectation that the necessary items will become visible.
   - `ReadOnlyViolationException` – This occurs if the primary has failed over to another instance. By backing off and retrying the query, you give the Neptune Gremlin Client the opportunity to refresh its endpoint information.
   
-If you do use a backoff-and-retry strategy to handle write request issues, consider implementing idempotent queries for create and update requests. 
-
 There are two places in your application where you should consider implementing a backoff-and-retry strategy:
 
-  - When creating a `GremlinCluster` and `GremlinClient`.
-  - When submitting a query.
+  - **Creating a `GremlinCluster` and `GremlinClient`** – In many applications you need create a `GremlinClient` only once, when the application starts. This client then lasts for the lifetime of the application. The situtaion is slightly different with serverless applications built using AWS Lambda functions. If you use Lambda functions to host your database access, each instance of a function will create its own `GremlinClient`.
+  - **Submitting a query** – If you do use a backoff-and-retry strategy to handle write request issues, consider implementing idempotent queries for create and update requests. 
   
 #### RetryUtils
 
@@ -684,6 +707,8 @@ clusterContext.close();
 The following example uses [Retry4j](https://github.com/elennick/retry4j) (which is included with the Neptune Gremlin Client) for retries, and `RetryUtils.isRetryableException()` for determing whether an exception represents a connection issue or query exception that would allow for an operation to be retried.
 
 In this example, the query is constructed and submitted inside a `Callable`, which is executed by a Retry4j `CallExecutor`. The `GraphTraversalSource` has been created _prior_ to submitting any query (possibly using the [example code shown above](#backoff-and-retry-when-creating-a-gremlincluster-and-gremlinclient)), and can be reused across queries and threads. You should use a separate `CallExecutor` per thread, however.
+
+Note that with each retry, the code creates a new `Traversal` instance spawned from the `GraphTraversalSource`. In other words, retry the entire query.
 
 ```
 //GraphTraversalSource can be provided by ClusterContext – see previous example
