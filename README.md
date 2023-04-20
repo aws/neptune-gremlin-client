@@ -71,7 +71,7 @@ cluster.close();
     - [Using an AWS Lambda proxy to retrieve cluster topology](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology)
       - [Installing the neptune-endpoints-info AWS Lambda function](#installing-the-neptune-endpoints-info-aws-lambda-function)
       - [Lambda proxy environment variables](#lambda-proxy-environment-variables)
-      - [Suspending endpoints using the AWS Lambda proxy](#suspending-endpoints-using-the-aws-lambdap-roxy)
+      - [Suspending endpoints using the AWS Lambda proxy](#suspending-endpoints-using-the-aws-lambda-proxy)
     - [Using a ClusterEndpointsRefreshAgent to query the Neptune Management API directly](#using-a-clusterendpointsrefreshagent-to-query-the-neptune-management-api-directly)
     - [ClusterEndpointsRefreshAgent credentials](#clusterendpointsrefreshagent-credentials)
       - [Accessing the Neptune Management API or Lambda proxy across accounts](#accessing-the-neptune-management-api-or-lambda-proxy-across-accounts)
@@ -113,7 +113,7 @@ One of the benefits of the Neptune Gremlin Client is that it helps you distribut
 
 If you're building an application that needs to distribute requests across replicas, your first choice will typically be the [reader endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html), which balances _connections_ across replicas. The reader endpoint continues to balance connections across replicas even if you change the cluster topology by adding or removing replicas, or promoting a replica to become the new primary.
 
-However, in some circumstances, using the reader endpoint can result in an uneven use of cluster resources. The reader endpoint works by periodically changing the host that the DNS entry points to. If a client opens a lot of connections before the DNS entry changes, all the connection requests are sent to a single Neptune instance. The same thing happens if DNS caching occurs in the application layer: the client ends up using the same replica over and over again. If an application opens a lot of connections to the reader endpoint at the same time, many of those connections can end up being tied to a single replica.
+However, in some circumstances using the reader endpoint can result in an uneven use of cluster resources. The reader endpoint works by periodically changing the host that the DNS entry points to. If a client opens a lot of connections before the DNS entry changes, all the connection requests are sent to a single Neptune instance. The same thing happens if DNS caching occurs in the application layer: the client ends up using the same replica over and over again. If an application opens a lot of connections to the reader endpoint at the same time, many of those connections can end up being tied to a single replica.
 
 The Neptune Gremlin Client more fairly distributes connections and requests across a set of instances in a Neptune cluster. The client works by creating a connection pool for each [_instance endpoint_](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html) in a given list of endpoints, and distributing requests (queries, not connections) in a round-robin fashion across these connection pools, thereby ensuring a more even distribution of work, and higher read throughput. 
 
@@ -159,15 +159,15 @@ Because the cluster topology can change at any moment as a result of both planne
 
 ### Configuration
 
-Most of the best practices for [using the TinkerPop Gremlin Java client with Amazon Neptune](#https://docs.aws.amazon.com/neptune/latest/userguide/best-practices-gremlin-java-client.html) apply to the Neptune Gremlin Client.
+Most of the best practices for [using the TinkerPop Gremlin Java client with Amazon Neptune](https://docs.aws.amazon.com/neptune/latest/userguide/best-practices-gremlin-java-client.html) apply to the Neptune Gremlin Client.
 
-One importnat point to note is that with the Neptune Gremlin Client, all connection and connection pool settings specified using the `NeptuneGremlinClusterBuilder` apply on a _per endpoint_ basis. For example, if you configure the `NeptuneGremlinClusterBuilder` with three endpoints, then it will create a client with three connection pools. Each connection pool will be configured separaetly with connection pool settings specified using the `NeptuneGremlinClusterBuilder`.
+One important point to note is that with the Neptune Gremlin Client, all connection and connection pool settings specified using the `NeptuneGremlinClusterBuilder` apply on a _per endpoint_ basis. For example, if you configure the `NeptuneGremlinClusterBuilder` with three endpoints, then it will create a client with three connection pools. Each connection pool will be configured separately with the connection pool settings specified using the `NeptuneGremlinClusterBuilder`.
 
-Old versions of the TinkerPop Gremlin Java client configured with a `minConnectionPoolSize` smaller than the `maxConnectionPoolSize` could sometimes appear to hang if they needed to add a new connection to the pool to handle an increase in traffic. If the thread used to schedule the creation of a new connection was alreadyt occupied doing other work, the new connection would never be created, and the client would be slow to make forward progress. To mitigate this, we used to recommend configuring the client with `minConnectionPoolSize` equal to `maxConnectionPoolSize`, so that all connections in the pool were created eagerly.
+Old versions of the TinkerPop Gremlin Java client configured with a `minConnectionPoolSize` smaller than the `maxConnectionPoolSize` could sometimes appear to hang if they needed to add a new connection to the pool to handle an increase in traffic. If the thread used to schedule the creation of a new connection was already doing other work, it sometimes happened that the new connection would never be created, theerby blocking the client from sending any further requests. To mitigate this, we used to recommend configuring the client with `minConnectionPoolSize` equal to `maxConnectionPoolSize`, so that all connections in the pool were created eagerly.
 
 This issue has been addressed in newer versions of the TinkerPop Gremlin Java client (on which the Neptune Gremlin Client depends), so the former advice no longer applies. Consider setting `minConnectionPoolSize` (per endpoint) to accomodate your steady traffic, and `maxConnectionPoolSize` the peak in your traffic. The exact values will depend on your workload, and may require some experimentation. If in doubt, leave the builder to use the default values (`2` and `8` respectively).
 
-If you are using the Neptune Gremlin Client in an AWS Lambda function, consider setting both `minConnectionPoolSize` and `maxConnectionPoolSize` to `1`. Because concurrent client requests to your Lambda fucntions are handled by different function instances running in separate execution contexts, there's no need to maintain a pool of connections to handle concurrent requests inside each function instance.
+If you are using the Neptune Gremlin Client in an AWS Lambda function, consider setting both `minConnectionPoolSize` and `maxConnectionPoolSize` to `1`. Because concurrent client requests to your Lambda functions are handled by different function instances running in separate execution contexts, there's no need to maintain a pool of connections to handle concurrent requests inside each function instance.
 
 ## Using a ClusterEndpointsRefreshAgent
 
@@ -747,6 +747,61 @@ try {
     // Handle unexpected exceptions
 }
 ```
+
+### Connection timeouts and refreshing endpoint addresses after connection failures
+
+Whenever you submit a Gremlin request to a `GremlinClient`, the client repeatedly tries to acquire a connection until it either succeeds, a `ConnectionException` occurs, or a timeout threshold is exceeded.
+
+The `GremlinClient.chooseConnection()` method (which is invoiked internally whenever the application submits a request via the client) respects the `maxWaitForConnection` value specified when you create a `GremlinCluster`. The following example creates a `GremlinClient` whose `chooseConnection()` method will throw a `TimeoutException`after 10 seconds if it can't acquire a connection:
+
+```
+GremlinCluster cluster = GremlinClusterBuilder.build()
+        .maxWaitForConnection(10000)
+        ...
+        .create();
+
+GremlinClient client = cluster.connect();
+```
+
+If you don't specify a `maxWaitForConnection` value, the `GremlinCluster` uses a default value of `16,000` milliseconds.
+
+Whenever a `GremlinClient` attempts to acquire a connection, it iterates through the connection pools associated with the endpoints with which it has been configured, looking for the first healthy connection. It waits 5 milliseconds between attempts to get a connection.
+
+If you have [suspended the database endpoints](#suspending-endpoints-using-the-aws-lambda-proxy) (via a Lambda proxy), instead of throwing a `TimeoutException`, the client will throw an `EndpointsUnavailableException` after the `maxWaitForConnection` interval.
+
+Sometimes the reason the client is not able to acquire a connection is because it has a stale view of the cluster topology. In these circumstances, you may want the client to immediately refresh its view of the cluster topology, rather than wait for the refresh agent's next scheduled refresh. There are two builder methods that can help here, `maxTimeToAcquireConnectionMillis()` and `maxAttemptsToAcquireConnection()`. By default, nether of these values is configured. If you configure one or other, or both of these values, you must also supply an event handler using the `onFailureToAcquireConnection()` builder method.
+
+  - `maxTimeToAcquireConnectionMillis()` – This is the maximum time the client will wait to acquire a connection before triggering the handler supplied through `onFailureToAcquireConnection()`. If you set `maxTimeToAcquireConnectionMillis`, ensure the value is less than `maxWaitForConnection`. If you set `maxTimeToAcquireConnectionMillis` greater than `maxWaitForConnection`, the client will simply throw a `TimeoutException` after the `maxWaitForConnection` interval.
+  - `maxAttemptsToAcquireConnection()` – This is the maximum number of times a client will attempt to acquire a connection per request before triggering the handler supplied through `onFailureToAcquireConnection()`. Remember, the client waits 5 milliseconds between attempts to get a connection, so if you set `maxAttemptsToAcquireConnection`, ensure `maxAttemptsToAcquireConnection * 5` is less than `maxWaitForConnection`.
+
+If you configure `maxTimeToAcquireConnectionMillis` and/or `maxAttemptsToAcquireConnection`, you must also supply an event handler using the `onFailureToAcquireConnection()` builder method. The handler is simply an instance of `Supplier<EndpointCollection>` – when invoked, it must return an `EndpointCollection`.
+
+The following example shows how to create a `GremlinClient` that will refresh its endpoints after 5 seconds have passed trying to acquire a connection:
+
+```
+EndpointsType selector = EndpointsType.ReadReplicas;
+
+ClusterEndpointsRefreshAgent refreshAgent =
+        ClusterEndpointsRefreshAgent.lambdaProxy(lambdaProxy);
+        
+GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
+        .addContactPoints(refreshAgent.getEndpoints(selector))
+        .maxTimeToAcquireConnectionMillis(5000)
+        .onFailureToAcquireConnection(() -> refreshAgent.getEndpoints(selector))
+        .maxWaitForConnection(20000)
+        .create();       
+ 
+GremlinClient client = cluster.connect();
+
+refreshAgent.startPollingNeptuneAPI(
+        RefreshTask.refresh(client, selector),
+        60,
+        TimeUnit.SECONDS);
+```
+
+The refresh agent here is configured to find the endpoint addresses of all database instances in a Neptune cluster that are currently acting as readers. The `NeptuneGremlinClusterBuilder` creates a `GremlinCluster` whose contact points (i.e. its endpoint addresses) are initialized via a first invocation of the refresh agent. But the builder also configures the client so that after 5 seconds have passed attempting to acquire a connection from its currently configured endpoint addresses, it refreshes those addresses, again using the agent. The client is also configured to timeout attempts to get a connection after 20 seconds. At the end of the snippet we also configure the refresh agent to refresh the `GremlinClient` every minute, irrespective of any failures or successes.
+
+With this setup, then, the `GremlinClient` will refresh its endpoint addresses once every minute. It will also refresh its endpoints after 5 seonds have passed  attempting to get a connection. If any attempt to get a connection takes longer than 20 seconds, the client will throw a `TimeoutException`.
 
 ## Migrating from version 1 of the Neptune Gremlin Client
 

@@ -24,8 +24,6 @@ public class EndpointStrategies {
     private final int maxTimeToAcquireConnectionMillis;
     private final Supplier<EndpointCollection> onFailureToAcquireConnection;
 
-    private static final Logger logger = LoggerFactory.getLogger(EndpointStrategies.class);
-
     public EndpointStrategies(AvailableEndpointFilter availableEndpointFilter,
                               int maxAttemptsToAcquireConnection,
                               int maxWaitBeforeRaisingUnsuccessfulConnectAttemptMillis,
