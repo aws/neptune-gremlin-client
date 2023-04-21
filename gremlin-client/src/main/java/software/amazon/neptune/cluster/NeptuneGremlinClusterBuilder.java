@@ -52,36 +52,44 @@ public class NeptuneGremlinClusterBuilder {
     }
 
     /**
+     * Number of millis to wait between each attempt to acquire a connection.
+     */
+    public NeptuneGremlinClusterBuilder acquireConnectionBackoffMillis(final int acquireConnectionBackoffMillis) {
+        innerBuilder.acquireConnectionBackoffMillis(acquireConnectionBackoffMillis);
+        return this;
+    }
+
+    /**
+     * Minimum number of millis to wait between invoking handler supplied in
+     * {@link #onEagerRefresh}.
+     */
+    public NeptuneGremlinClusterBuilder eagerRefreshBackoffMillis(final int eagerRefreshBackoffMillis) {
+        innerBuilder.eagerRefreshBackoffMillis(eagerRefreshBackoffMillis);
+        return this;
+    }
+
+    /**
      * Number of millis to wait while trying to acquire connection before invoking handler supplied in
-     * {@link #onFailureToAcquireConnection}.
+     * {@link #onEagerRefresh}.
      */
-    public NeptuneGremlinClusterBuilder maxTimeToAcquireConnectionMillis(final int maxTimeToAcquireConnectionMillis) {
-        innerBuilder.maxTimeToAcquireConnectionMillis(maxTimeToAcquireConnectionMillis);
+    public NeptuneGremlinClusterBuilder eagerRefreshWaitTimeMillis(final int eagerRefreshWaitTimeMillis) {
+        innerBuilder.eagerRefreshWaitTimeMillis(eagerRefreshWaitTimeMillis);
         return this;
     }
 
     /**
-     * Maximum number of times to attempt acquiring connection before invoking handler supplied in
-     * {@link #onFailureToAcquireConnection}.
-     */
-    public NeptuneGremlinClusterBuilder maxAttemptsToAcquireConnection(final int maxAttemptsToAcquireConnection) {
-        innerBuilder.maxAttemptsToAcquireConnection(maxAttemptsToAcquireConnection);
-        return this;
-    }
-
-    /**
-     * Handler to be invoked after {@link #maxTimeToAcquireConnectionMillis}.
+     * Handler to be invoked after {@link #eagerRefreshWaitTimeMillis}.
      * The handler should return a {@link Supplier< EndpointCollection >}.
      */
-    public NeptuneGremlinClusterBuilder onFailureToAcquireConnection(final Supplier<EndpointCollection> eventHandler) {
-        innerBuilder.onFailureToAcquireConnection(eventHandler);
+    public NeptuneGremlinClusterBuilder onEagerRefresh(final Supplier<EndpointCollection> eventHandler) {
+        innerBuilder.onEagerRefresh(eventHandler);
         return this;
     }
 
     /**
      * Strategy for filtering and enriching available endpoints.
      */
-    public NeptuneGremlinClusterBuilder availableEndpointFilter(AvailableEndpointFilter availableEndpointFilter){
+    public NeptuneGremlinClusterBuilder availableEndpointFilter(AvailableEndpointFilter availableEndpointFilter) {
         this.availableEndpointFilter = availableEndpointFilter;
         return this;
     }
@@ -366,11 +374,11 @@ public class NeptuneGremlinClusterBuilder {
         Collection<Endpoint> filteredEndpoints = new ArrayList<>();
         Set<String> rejectedReasons = new HashSet<>();
 
-        if (availableEndpointFilter != null){
+        if (availableEndpointFilter != null) {
             innerBuilder.availableEndpointFilter(availableEndpointFilter);
             for (Endpoint endpoint : endpoints) {
                 ApprovalResult approvalResult = availableEndpointFilter.approveEndpoint(endpoint);
-                if (approvalResult.isApproved()){
+                if (approvalResult.isApproved()) {
                     filteredEndpoints.add(endpoint);
                 } else {
                     rejectedReasons.add(approvalResult.reason());
@@ -381,7 +389,7 @@ public class NeptuneGremlinClusterBuilder {
         }
 
         if (filteredEndpoints.isEmpty()) {
-            if (!rejectedReasons.isEmpty()){
+            if (!rejectedReasons.isEmpty()) {
                 throw new EndpointsUnavailableException(rejectedReasons);
             }
             if (isDirectConnection()) {

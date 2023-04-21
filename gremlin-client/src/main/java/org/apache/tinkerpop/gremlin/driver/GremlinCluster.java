@@ -14,10 +14,7 @@ package org.apache.tinkerpop.gremlin.driver;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.neptune.cluster.DatabaseEndpoint;
-import software.amazon.neptune.cluster.Endpoint;
-import software.amazon.neptune.cluster.EndpointCollection;
-import software.amazon.neptune.cluster.EndpointStrategies;
+import software.amazon.neptune.cluster.*;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -35,17 +32,20 @@ public class GremlinCluster implements AutoCloseable {
     private final Collection<GremlinClusterCollection> clusterCollections = new CopyOnWriteArrayList<>();
     private final AtomicReference<CompletableFuture<Void>> closing = new AtomicReference<>(null);
     private final EndpointStrategies endpointStrategies;
+    private final AcquireConnectionConfig acquireConnectionConfig;
 
 
     public GremlinCluster(Collection<Endpoint> defaultEndpoints,
                           Function<Collection<String>, Cluster> clusterBuilder,
-                          EndpointStrategies endpointStrategies) {
+                          EndpointStrategies endpointStrategies,
+                          AcquireConnectionConfig acquireConnectionConfig) {
         logger.info("Created GremlinCluster, defaultEndpoints: {}", defaultEndpoints.stream()
                 .map(Endpoint::getEndpoint)
                 .collect(Collectors.toList()) );
         this.defaultEndpoints = defaultEndpoints;
         this.clusterBuilder = clusterBuilder;
         this.endpointStrategies = endpointStrategies;
+        this.acquireConnectionConfig = acquireConnectionConfig;
     }
 
     public GremlinClient connect(List<String> addresses, Client.Settings settings) {
@@ -86,7 +86,8 @@ public class GremlinCluster implements AutoCloseable {
                 clientHolders,
                 clusterCollection,
                 clusterBuilder,
-                endpointStrategies
+                endpointStrategies,
+                acquireConnectionConfig
         );
     }
 

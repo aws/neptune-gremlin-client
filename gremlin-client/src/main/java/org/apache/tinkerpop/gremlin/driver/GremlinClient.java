@@ -36,25 +36,28 @@ public class GremlinClient extends Client implements AutoCloseable {
     private final AtomicReference<ClientHolderCollection> clients = new AtomicReference<>(new ClientHolderCollection());
     private final AtomicLong index = new AtomicLong(0);
     private final AtomicReference<CompletableFuture<Void>> closing = new AtomicReference<>(null);
-    private final UnsuccessfulConnectAttemptManager unsuccessfulConnectAttemptManager;
+    private final ConnectionAttemptManager connectionAttemptManager;
     private final GremlinClusterCollection clusterCollection;
     private final Function<Collection<String>, Cluster> clusterBuilder;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final EndpointStrategies endpointStrategies;
+    private final AcquireConnectionConfig acquireConnectionConfig;
 
     GremlinClient(Cluster cluster,
                   Settings settings,
                   ClientHolderCollection clients,
                   GremlinClusterCollection clusterCollection,
                   Function<Collection<String>, Cluster> clusterBuilder,
-                  EndpointStrategies endpointStrategies) {
+                  EndpointStrategies endpointStrategies,
+                  AcquireConnectionConfig acquireConnectionConfig) {
         super(cluster, settings);
 
         this.clients.set(clients);
         this.clusterCollection = clusterCollection;
         this.clusterBuilder = clusterBuilder;
         this.endpointStrategies = endpointStrategies;
-        this.unsuccessfulConnectAttemptManager = endpointStrategies.createUnsuccessfulConnectAttemptManager(this);
+        this.acquireConnectionConfig = acquireConnectionConfig;
+        this.connectionAttemptManager = acquireConnectionConfig.createConnectionAttemptManager(this);
 
         logger.info("availableEndpointFilter: {}", endpointStrategies.availableEndpointFilter());
     }
@@ -149,7 +152,7 @@ public class GremlinClient extends Client implements AutoCloseable {
 
             while (currentClientHolders.isEmpty()) {
 
-                if ((System.currentTimeMillis() - start) > maxWaitForConnection) {
+                if (connectionAttemptManager.maxWaitTimeExceeded(start)) {
                     if (currentClientHolders.hasRejectedEndpoints()) {
                         throw new EndpointsUnavailableException(currentClientHolders.rejectionReasons());
                     } else {
@@ -157,10 +160,12 @@ public class GremlinClient extends Client implements AutoCloseable {
                     }
                 }
 
-                unsuccessfulConnectAttemptManager.handleUnsuccessfulConnectAttempt(start);
+                if (connectionAttemptManager.eagerRefreshWaitTimeExceeded(start)) {
+                    connectionAttemptManager.triggerEagerRefresh();
+                }
 
                 try {
-                    Thread.sleep(500);
+                    Thread.sleep(acquireConnectionConfig.acquireConnectionBackoffMillis());
                     currentClientHolders = clients.get();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -173,27 +178,26 @@ public class GremlinClient extends Client implements AutoCloseable {
 
             if (connection == null) {
 
-                if ((System.currentTimeMillis() - start) > maxWaitForConnection) {
+                if (connectionAttemptManager.maxWaitTimeExceeded(start)) {
                     throw new TimeoutException("Timed-out waiting for connection");
                 }
 
-                unsuccessfulConnectAttemptManager.handleUnsuccessfulConnectAttempt(start);
+                if (connectionAttemptManager.eagerRefreshWaitTimeExceeded(start)) {
+                    connectionAttemptManager.triggerEagerRefresh();
+                }
 
                 try {
-                    Thread.sleep(5);
+                    Thread.sleep(acquireConnectionConfig.acquireConnectionBackoffMillis());
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
             }
         }
 
-        unsuccessfulConnectAttemptManager.reset();
-
         logger.debug("Connection: {} [{} ms]", connection.getConnectionInfo(), System.currentTimeMillis() - start);
 
         return connection;
     }
-
 
     @Override
     public Client alias(String graphOrTraversalSource) {
@@ -216,7 +220,7 @@ public class GremlinClient extends Client implements AutoCloseable {
         if (closing.get() != null)
             return closing.get();
 
-        unsuccessfulConnectAttemptManager.shutdownNow();
+        connectionAttemptManager.shutdownNow();
         executorService.shutdownNow();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();

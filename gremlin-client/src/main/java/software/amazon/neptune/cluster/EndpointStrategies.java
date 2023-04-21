@@ -12,37 +12,14 @@ permissions and limitations under the License.
 
 package software.amazon.neptune.cluster;
 
-import org.apache.tinkerpop.gremlin.driver.GremlinClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.function.Supplier;
-
 public class EndpointStrategies {
     private final AvailableEndpointFilter availableEndpointFilter;
-    private final int maxAttemptsToAcquireConnection;
-    private final int maxTimeToAcquireConnectionMillis;
-    private final Supplier<EndpointCollection> onFailureToAcquireConnection;
 
-    public EndpointStrategies(AvailableEndpointFilter availableEndpointFilter,
-                              int maxAttemptsToAcquireConnection,
-                              int maxWaitBeforeRaisingUnsuccessfulConnectAttemptMillis,
-                              Supplier<EndpointCollection> onFailureToAcquireConnection) {
+    public EndpointStrategies(AvailableEndpointFilter availableEndpointFilter) {
         this.availableEndpointFilter = availableEndpointFilter;
-        this.maxAttemptsToAcquireConnection = maxAttemptsToAcquireConnection;
-        this.maxTimeToAcquireConnectionMillis = maxWaitBeforeRaisingUnsuccessfulConnectAttemptMillis;
-        this.onFailureToAcquireConnection = onFailureToAcquireConnection;
     }
 
     public AvailableEndpointFilter availableEndpointFilter() {
         return availableEndpointFilter;
-    }
-
-    public UnsuccessfulConnectAttemptManager createUnsuccessfulConnectAttemptManager(GremlinClient gremlinClient){
-        return new UnsuccessfulConnectAttemptManager(
-                gremlinClient,
-                maxAttemptsToAcquireConnection,
-                maxTimeToAcquireConnectionMillis,
-                onFailureToAcquireConnection);
     }
 }

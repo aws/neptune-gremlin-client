@@ -68,9 +68,10 @@ public class GremlinClusterBuilder {
     private SslContext sslContext = null;
     private Supplier<LoadBalancingStrategy> loadBalancingStrategy = LoadBalancingStrategy.RoundRobin::new;
     private AuthProperties authProps = new AuthProperties();
-    private int maxAttemptsToAcquireConnection = -1;
-    private int maxTimeToAcquireConnectionMillis = -1;
-    private Supplier<EndpointCollection> onFailureToAcquireConnection = null;
+    private int eagerRefreshWaitTimeMillis = -1;
+    private int eagerRefreshBackoffMillis = 5000;
+    private int acquireConnectionBackoffMillis = 5;
+    private Supplier<EndpointCollection> onEagerRefresh = null;
     private AvailableEndpointFilter availableEndpointFilter;
     private HandshakeInterceptor interceptor = HandshakeInterceptor.NO_OP;
 
@@ -78,29 +79,37 @@ public class GremlinClusterBuilder {
     }
 
     /**
+     * Number of millis to wait between each attempt to acquire a connection.
+     */
+    public GremlinClusterBuilder acquireConnectionBackoffMillis(final int acquireConnectionBackoffMillis) {
+        this.acquireConnectionBackoffMillis = acquireConnectionBackoffMillis;
+        return this;
+    }
+
+    /**
+     * Minimum number of millis to wait between invoking handler supplied in
+     * {@link #onEagerRefresh}.
+     */
+    public GremlinClusterBuilder eagerRefreshBackoffMillis(final int eagerRefreshBackoffMillis) {
+        this.eagerRefreshBackoffMillis = eagerRefreshBackoffMillis;
+        return this;
+    }
+
+    /**
      * Number of millis to wait while trying to acquire connection before invoking handler supplied in
-     * {@link #onFailureToAcquireConnection}.
+     * {@link #onEagerRefresh}.
      */
-    public GremlinClusterBuilder maxTimeToAcquireConnectionMillis(final int maxTimeToAcquireConnectionMillis) {
-        this.maxTimeToAcquireConnectionMillis = maxTimeToAcquireConnectionMillis;
+    public GremlinClusterBuilder eagerRefreshWaitTimeMillis(final int eagerRefreshWaitTimeMillis) {
+        this.eagerRefreshWaitTimeMillis = eagerRefreshWaitTimeMillis;
         return this;
     }
 
     /**
-     * Maximum number of times to attempt acquiring connection before invoking handler supplied in
-     * {@link #onFailureToAcquireConnection}.
-     */
-    public GremlinClusterBuilder maxAttemptsToAcquireConnection(final int maxAttemptsToAcquireConnection) {
-        this.maxAttemptsToAcquireConnection = maxAttemptsToAcquireConnection;
-        return this;
-    }
-
-    /**
-     * Handler to be invoked after {@link #maxTimeToAcquireConnectionMillis}.
+     * Handler to be invoked after {@link #eagerRefreshWaitTimeMillis}.
      * The handler should return a {@link Supplier< EndpointCollection >}.
      */
-    public GremlinClusterBuilder onFailureToAcquireConnection(final Supplier<EndpointCollection> eventHandler) {
-        this.onFailureToAcquireConnection = eventHandler;
+    public GremlinClusterBuilder onEagerRefresh(final Supplier<EndpointCollection> eventHandler) {
+        this.onEagerRefresh = eventHandler;
         return this;
     }
 
@@ -578,10 +587,15 @@ public class GremlinClusterBuilder {
         }
 
         EndpointStrategies endpointStrategies = new EndpointStrategies(
-                endpointFilter,
-                maxAttemptsToAcquireConnection,
-                maxTimeToAcquireConnectionMillis,
-                onFailureToAcquireConnection);
+                endpointFilter
+        );
+
+        AcquireConnectionConfig acquireConnectionConfig = new AcquireConnectionConfig(
+                maxWaitForConnection,
+                eagerRefreshWaitTimeMillis,
+                onEagerRefresh,
+                eagerRefreshBackoffMillis,
+                acquireConnectionBackoffMillis);
 
         return new GremlinCluster(filteredEndpoints, addressList -> {
             Cluster.Builder builder = Cluster.build()
@@ -623,6 +637,6 @@ public class GremlinClusterBuilder {
                 }
             }
             return builder.create();
-        }, endpointStrategies);
+        }, endpointStrategies, acquireConnectionConfig);
     }
 }

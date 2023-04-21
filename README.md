@@ -88,6 +88,8 @@ cluster.close();
       - [RetryUtils](#retryutils)
       - [Backoff and retry when creating a  GremlinCluster and GremlinClient](#backoff-and-retry-when-creating-a-gremlincluster-and-gremlinclient)
       - [Backoff and retry when submitting a query](#backoff-and-retry-when-submitting-a-query)
+    - [Connection timeouts](#connection-timeouts)
+      - [Refreshing endpoints while waiting to acquire a connection](#refreshing-endpoints-while-waiting-to-acquire-a-connection)
   - [Migrating from version 1 of the Neptune Gremlin Client](#migrating-from-version-1-of-the-neptune-gremlin-client)
   - [Demo](#demo)
     - [CustomSelectorsDemo](#customselectorsdemo)
@@ -748,11 +750,11 @@ try {
 }
 ```
 
-### Connection timeouts and refreshing endpoint addresses after connection failures
+### Connection timeouts 
 
 Whenever you submit a Gremlin request to a `GremlinClient`, the client repeatedly tries to acquire a connection until it either succeeds, a `ConnectionException` occurs, or a timeout threshold is exceeded.
 
-The `GremlinClient.chooseConnection()` method (which is invoiked internally whenever the application submits a request via the client) respects the `maxWaitForConnection` value specified when you create a `GremlinCluster`. The following example creates a `GremlinClient` whose `chooseConnection()` method will throw a `TimeoutException`after 10 seconds if it can't acquire a connection:
+The `GremlinClient.chooseConnection()` method (which is invoked internally whenever the application submits a request via the client) respects the `maxWaitForConnection` value specified when you create a `GremlinCluster`. The following example creates a `GremlinClient` whose `chooseConnection()` method will throw a `TimeoutException`after 10 seconds if it can't acquire a connection:
 
 ```
 GremlinCluster cluster = GremlinClusterBuilder.build()
@@ -765,16 +767,17 @@ GremlinClient client = cluster.connect();
 
 If you don't specify a `maxWaitForConnection` value, the `GremlinCluster` uses a default value of `16,000` milliseconds.
 
-Whenever a `GremlinClient` attempts to acquire a connection, it iterates through the connection pools associated with the endpoints with which it has been configured, looking for the first healthy connection. It waits 5 milliseconds between attempts to get a connection.
+Whenever a `GremlinClient` attempts to acquire a connection, it iterates through the connection pools associated with the endpoints with which it has been configured, looking for the first healthy connection. By default, it waits 5 milliseconds between attempts to get a connection. You can configure this interval using the `acquireConnectionBackoffMillis()` builder method.
 
 If you have [suspended the database endpoints](#suspending-endpoints-using-the-aws-lambda-proxy) (via a Lambda proxy), instead of throwing a `TimeoutException`, the client will throw an `EndpointsUnavailableException` after the `maxWaitForConnection` interval.
 
-Sometimes the reason the client is not able to acquire a connection is because it has a stale view of the cluster topology. In these circumstances, you may want the client to immediately refresh its view of the cluster topology, rather than wait for the refresh agent's next scheduled refresh. There are two builder methods that can help here, `maxTimeToAcquireConnectionMillis()` and `maxAttemptsToAcquireConnection()`. By default, nether of these values is configured. If you configure one or other, or both of these values, you must also supply an event handler using the `onFailureToAcquireConnection()` builder method.
+#### Refreshing endpoints while waiting to acquire a connection
 
-  - `maxTimeToAcquireConnectionMillis()` – This is the maximum time the client will wait to acquire a connection before triggering the handler supplied through `onFailureToAcquireConnection()`. If you set `maxTimeToAcquireConnectionMillis`, ensure the value is less than `maxWaitForConnection`. If you set `maxTimeToAcquireConnectionMillis` greater than `maxWaitForConnection`, the client will simply throw a `TimeoutException` after the `maxWaitForConnection` interval.
-  - `maxAttemptsToAcquireConnection()` – This is the maximum number of times a client will attempt to acquire a connection per request before triggering the handler supplied through `onFailureToAcquireConnection()`. Remember, the client waits 5 milliseconds between attempts to get a connection, so if you set `maxAttemptsToAcquireConnection`, ensure `maxAttemptsToAcquireConnection * 5` is less than `maxWaitForConnection`.
+Sometimes the reason the client is not able to acquire a connection is because it has a stale view of the cluster topology. In these circumstances, you may want the client to immediately refresh its view of the cluster topology, rather than wait for the refresh agent's next scheduled refresh. The `NeptuneGremlinClusterBuilder` provides a `eagerRefreshWaitTimeMillis()` builder method that allows you to specify the maximum time the client will wait to acquire a connection before triggering an eager refresh of the endpoints. If you set `eagerRefreshWaitTimeMillis`, ensure the value is less than `maxWaitForConnection`. If you set `eagerRefreshWaitTimeMillis` greater than `maxWaitForConnection`, the client will simply throw a `TimeoutException` after the `maxWaitForConnection` interval. 
 
-If you configure `maxTimeToAcquireConnectionMillis` and/or `maxAttemptsToAcquireConnection`, you must also supply an event handler using the `onFailureToAcquireConnection()` builder method. The handler is simply an instance of `Supplier<EndpointCollection>` – when invoked, it must return an `EndpointCollection`.
+By default, `eagerRefreshWaitTimeMillis` is not configured.
+
+If you do configure `eagerRefreshWaitTimeMillis`, you must also supply an event handler using the `onEagerRefresh()` builder method. The handler is simply an instance of `Supplier<EndpointCollection>` – when invoked, it must return an `EndpointCollection`.
 
 The following example shows how to create a `GremlinClient` that will refresh its endpoints after 5 seconds have passed trying to acquire a connection:
 
@@ -786,8 +789,8 @@ ClusterEndpointsRefreshAgent refreshAgent =
         
 GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
         .addContactPoints(refreshAgent.getEndpoints(selector))
-        .maxTimeToAcquireConnectionMillis(5000)
-        .onFailureToAcquireConnection(() -> refreshAgent.getEndpoints(selector))
+        .eagerRefreshWaitTimeMillis(5000)
+        .onEagerRefresh(() -> refreshAgent.getEndpoints(selector))
         .maxWaitForConnection(20000)
         .create();       
  
@@ -803,6 +806,8 @@ The refresh agent here is configured to find the endpoint addresses of all datab
 
 With this setup, then, the `GremlinClient` will refresh its endpoint addresses once every minute. It will also refresh its endpoints after 5 seonds have passed  attempting to get a connection. If any attempt to get a connection takes longer than 20 seconds, the client will throw a `TimeoutException`.
 
+The `eagerRefreshWaitTimeMillis` value is evaluated on a per-request basis. However, a `GremlinClient` is capable of concurrently handling many requests. The client ensures that multiple eager refresh events cannot be triggered at the same time. Further, it imposes a backoff period between eager refresh events, so as to prevent the Neptune Management API or a Lambda proxy being overwhelmed with cluster topology requests. By default, this backoff period is 5 seconds. You can configure it using the `eagerRefreshBackoffMillis()` builder method. 
+
 ## Migrating from version 1 of the Neptune Gremlin Client
 
 Neptune Gremlin Client 2.x.x includes the following breaking changes:
@@ -813,7 +818,7 @@ Neptune Gremlin Client 2.x.x includes the following breaking changes:
   - To supply an initial list of endpoints to the `NeptuneGremlinClusterBuilder.addContactPoints()` method, use `refreshAgent.getEndpoints()` with an appropriate selector (version 1 used `getAddresses()`).
   - The `ClusterEndpointsRefreshAgent.startPollingNeptuneAPI()` now accepts a collection of `RefreshTask` objects. Each task encapsulates a client and a selector. This way, you can update multiple clients, each with its own selection logic, using a single refresh agent.
   - The `NeptuneGremlinClusterBuilder` now uses `proxyPort()`, 'proxyEndpoint()` and `proxyRemoveHostHeader()` builder methods to configure connection through a proxy (e.g. a load balancer). These methods replace `loadBalancerPort()`, `networkLoadBalancerEndpoint()` and `applicationLoadBalancerEndpoint()`.
-  - The `NeptuneGremlinClusterBuilder`'s `refreshOnErrorThreshold()` and `refreshOnErrorEventHandler()` builder methods have been replaced with `maxAttemptsToAcquireConnection()` and `onFailureToAcquireConnection()`. 
+  - The `NeptuneGremlinClusterBuilder`'s `refreshOnErrorThreshold()` and `refreshOnErrorEventHandler()` builder methods have been replaced with `eagerRefreshWaitTimeMillis()` and `onEagerRefresh()`. Note that `refreshOnErrorThreshold()` specified a count of consecutive failure attempts, whereas `eagerRefreshWaitTimeMillis` specifies a wait time in milliseconds. When migrating, set `eagerRefreshWaitTimeMillis` equal to `refreshOnErrorThreshold * 5`. 
 
 The following example shows a solution built using Neptune Gremlin Client version 1.0.2:
 
@@ -886,8 +891,8 @@ ClusterEndpointsRefreshAgent refreshAgent =
 GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
         .enableIamAuth(true)
         .addContactPoints(refreshAgent.getEndpoints(selector))
-        .maxAttemptsToAcquireConnection(1000)
-        .onFailureToAcquireConnection(() -> refreshAgent.getEndpoints(selector))
+        .eagerRefreshWaitTimeMillis(5000) // 1000 * 5 millis
+        .onEagerRefresh(() -> refreshAgent.getEndpoints(selector))
         .create();
 
 GremlinClient client = cluster.connect();
