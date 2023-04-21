@@ -89,7 +89,7 @@ cluster.close();
       - [Backoff and retry when creating a  GremlinCluster and GremlinClient](#backoff-and-retry-when-creating-a-gremlincluster-and-gremlinclient)
       - [Backoff and retry when submitting a query](#backoff-and-retry-when-submitting-a-query)
     - [Connection timeouts](#connection-timeouts)
-      - [Refreshing endpoints while waiting to acquire a connection](#refreshing-endpoints-while-waiting-to-acquire-a-connection)
+      - [Force refresh of endpoints when waiting to acquire a connection](#force-refresh-of-endpoints-when-waiting-to-acquire-a-connection)
   - [Migrating from version 1 of the Neptune Gremlin Client](#migrating-from-version-1-of-the-neptune-gremlin-client)
   - [Demo](#demo)
     - [CustomSelectorsDemo](#customselectorsdemo)
@@ -109,15 +109,23 @@ A `ClusterEndpointsRefreshAgent` can be configured to get the database cluster's
 
 Your application can then use an `EndpointsSelector` to select an appropriate set of endpoints from the current cluster topology.
 
+The following diagram shows how an application can use a `GremlinClient`, `ClusterEndpointsRefreshAgent`, and AWS Lambda proxy function to access a Neptune database:
+
+![Accessing Neptune using AWS Lambda proxy](lambda-proxy-architecture.png)
+
+The following diagram shows how an application can use a `GremlinClient`, and a `ClusterEndpointsRefreshAgent` that gets cluster topology information directly from the Neptune Management API to access a Neptune database:
+
+![Accessing Neptune using Neptune Management API](management-api-architecture.png)
+
 ### Distributing requests across an Amazon Neptune cluster
 
 One of the benefits of the Neptune Gremlin Client is that it helps you distribute requests evenly across multiple read replicas in a Neptune cluster. 
 
-If you're building an application that needs to distribute requests across replicas, your first choice will typically be the [reader endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html), which balances _connections_ across replicas. The reader endpoint continues to balance connections across replicas even if you change the cluster topology by adding or removing replicas, or promoting a replica to become the new primary.
+If you're building an application that needs to distribute requests across replicas, your first choice will typically be the [reader endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html#feature-overview-reader-endpoints), which balances _connections_ across replicas. The reader endpoint continues to balance connections across replicas even if you change the cluster topology by adding or removing replicas, or promoting a replica to become the new primary.
 
 However, in some circumstances using the reader endpoint can result in an uneven use of cluster resources. The reader endpoint works by periodically changing the host that the DNS entry points to. If a client opens a lot of connections before the DNS entry changes, all the connection requests are sent to a single Neptune instance. The same thing happens if DNS caching occurs in the application layer: the client ends up using the same replica over and over again. If an application opens a lot of connections to the reader endpoint at the same time, many of those connections can end up being tied to a single replica.
 
-The Neptune Gremlin Client more fairly distributes connections and requests across a set of instances in a Neptune cluster. The client works by creating a connection pool for each [_instance endpoint_](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html) in a given list of endpoints, and distributing requests (queries, not connections) in a round-robin fashion across these connection pools, thereby ensuring a more even distribution of work, and higher read throughput. 
+The Neptune Gremlin Client more fairly distributes connections and requests across a set of instances in a Neptune cluster. The client works by creating a connection pool for each [_instance endpoint_](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html#feature-overview-instance-endpoints) in a given list of endpoints, and distributing requests (queries, not connections) in a round-robin fashion across these connection pools, thereby ensuring a more even distribution of work, and higher read throughput. 
 
 Note that the Neptune Gremlin Client will only round-robin requests across multiple read replicas if you supply it with a list of replica _instance endpoints_. If you supply it with the reader endpoint, you may continue to see connections and requests unevenly distributed across the cluster.
 
@@ -424,11 +432,11 @@ EndpointsSelector writerSelector = (cluster) -> {
 
 The `EndpointsType` enum provides implementations of `EndpointsSelector` for some common use cases:
 
-  * `EndpointsType.All` –  Returns all available instance (writer and read replicas) endpoints, or, if there are no available instance endpoints, the [reader endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html).
-  * `EndpointsType.Primary` – Returns the primary (writer) instance endpoint if it is available, or the [cluster endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html) if the primary instance endpoint is not available.
-  * `EndpointsType.ReadReplicas` – Returns all available read replica instance endpoints, or, if there are no replica instance endpoints, the [reader endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html).
-  * `EndpointsType.ClusterEndpoint` – Returns the [cluster endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html).
-  * `EndpointsType.ReaderEndpoint` – Returns the [reader endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html).
+  * `EndpointsType.All` –  Returns all available instance (writer and read replicas) endpoints, or, if there are no available instance endpoints, the [reader endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html#feature-overview-reader-endpoints).
+  * `EndpointsType.Primary` – Returns the primary (writer) instance endpoint if it is available, or the [cluster endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html#feature-overview-cluster-endpoints) if the primary instance endpoint is not available.
+  * `EndpointsType.ReadReplicas` – Returns all available read replica instance endpoints, or, if there are no replica instance endpoints, the [reader endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html#feature-overview-reader-endpoints).
+  * `EndpointsType.ClusterEndpoint` – Returns the [cluster endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html#feature-overview-cluster-endpoints).
+  * `EndpointsType.ReaderEndpoint` – Returns the [reader endpoint](https://docs.aws.amazon.com/neptune/latest/userguide/feature-overview-endpoints.html#feature-overview-reader-endpoints).
  
 
 The following example shows how to use the `ReadReplicas` enum value to create and refresh a client:
@@ -771,9 +779,11 @@ Whenever a `GremlinClient` attempts to acquire a connection, it iterates through
 
 If you have [suspended the database endpoints](#suspending-endpoints-using-the-aws-lambda-proxy) (via a Lambda proxy), instead of throwing a `TimeoutException`, the client will throw an `EndpointsUnavailableException` after the `maxWaitForConnection` interval.
 
-#### Refreshing endpoints while waiting to acquire a connection
+#### Force refresh of endpoints when waiting to acquire a connection
 
-Sometimes the reason the client is not able to acquire a connection is because it has a stale view of the cluster topology. In these circumstances, you may want the client to immediately refresh its view of the cluster topology, rather than wait for the refresh agent's next scheduled refresh. The `NeptuneGremlinClusterBuilder` provides a `eagerRefreshWaitTimeMillis()` builder method that allows you to specify the maximum time the client will wait to acquire a connection before triggering an eager refresh of the endpoints. If you set `eagerRefreshWaitTimeMillis`, ensure the value is less than `maxWaitForConnection`. If you set `eagerRefreshWaitTimeMillis` greater than `maxWaitForConnection`, the client will simply throw a `TimeoutException` after the `maxWaitForConnection` interval. 
+Sometimes the reason the client is not able to acquire a connection is because it has a stale view of the cluster topology. In these circumstances, you may want the client to immediately refresh its view of the cluster topology, rather than wait for the refresh agent's next scheduled refresh. 
+
+The `NeptuneGremlinClusterBuilder` provides an `eagerRefreshWaitTimeMillis()` builder method that allows you to specify the maximum time the client will wait to acquire a connection before triggering an eager refresh of the endpoints. If you set `eagerRefreshWaitTimeMillis`, ensure the value is less than `maxWaitForConnection`. If you set `eagerRefreshWaitTimeMillis` greater than `maxWaitForConnection`, the client will simply throw a `TimeoutException` after the `maxWaitForConnection` interval. 
 
 By default, `eagerRefreshWaitTimeMillis` is not configured.
 
@@ -802,7 +812,7 @@ refreshAgent.startPollingNeptuneAPI(
         TimeUnit.SECONDS);
 ```
 
-The refresh agent here is configured to find the endpoint addresses of all database instances in a Neptune cluster that are currently acting as readers. The `NeptuneGremlinClusterBuilder` creates a `GremlinCluster` whose contact points (i.e. its endpoint addresses) are initialized via a first invocation of the refresh agent. But the builder also configures the client so that after 5 seconds have passed attempting to acquire a connection from its currently configured endpoint addresses, it refreshes those addresses, again using the agent. The client is also configured to timeout attempts to get a connection after 20 seconds. At the end of the snippet we also configure the refresh agent to refresh the `GremlinClient` every minute, irrespective of any failures or successes.
+The refresh agent here is configured to find the endpoint addresses of all database instances in a Neptune cluster that are currently acting as readers. The `NeptuneGremlinClusterBuilder` creates a `GremlinCluster` whose contact points (i.e. its endpoint addresses) are initialized via a first invocation of the refresh agent. But the builder also configures the client so that after 5 seconds have passed attempting to acquire a connection from its currently configured endpoint addresses, it refreshes those addresses, again using the agent. The client is also configured to timeout attempts to get a connection after 20 seconds. At the end of the example we also configure the refresh agent to refresh the `GremlinClient` every minute, irrespective of any failures or successes.
 
 With this setup, then, the `GremlinClient` will refresh its endpoint addresses once every minute. It will also refresh its endpoints after 5 seonds have passed  attempting to get a connection. If any attempt to get a connection takes longer than 20 seconds, the client will throw a `TimeoutException`.
 
