@@ -111,7 +111,7 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
 
         Collection<String> addresses = new ArrayList<>();
         for (Endpoint endpoint : endpoints) {
-            addresses.add(endpoint.getEndpoint());
+            addresses.add(endpoint.getAddress());
         }
 
         String results = String.join(",", addresses);

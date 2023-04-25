@@ -19,11 +19,11 @@ import java.util.Map;
 
 public class DatabaseEndpoint implements Endpoint {
 
-    private String endpoint;
+    private String address;
     private final Map<String, String> annotations = new HashMap<>();
 
-    public void setEndpoint(String endpoint) {
-        this.endpoint = endpoint;
+    public void setAddress(String address) {
+        this.address = address;
     }
 
     public void setAnnotations(Map<String, String> annotations) {
@@ -32,7 +32,7 @@ public class DatabaseEndpoint implements Endpoint {
     }
 
     public DatabaseEndpoint withEndpoint(String endpoint) {
-        setEndpoint(endpoint);
+        setAddress(endpoint);
         return this;
     }
 
@@ -42,8 +42,8 @@ public class DatabaseEndpoint implements Endpoint {
     }
 
     @Override
-    public String getEndpoint() {
-        return endpoint;
+    public String getAddress() {
+        return address;
     }
 
     @Override
@@ -64,8 +64,8 @@ public class DatabaseEndpoint implements Endpoint {
 
     @Override
     public String toString() {
-        return "DatabaseEndpointMetadata{" +
-                "endpoint='" + endpoint + '\'' +
+        return "DatabaseEndpoint{" +
+                "address='" + address + '\'' +
                 ", annotations=" + annotations +
                 '}';
     }

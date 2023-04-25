@@ -15,7 +15,7 @@ package org.apache.tinkerpop.gremlin.driver;
 import java.util.Map;
 
 public interface Endpoint {
-    String getEndpoint();
+    String getAddress();
     boolean isAvailable();
     Map<String, String> getAnnotations();
     void setAnnotation(String key, String value);

@@ -12,7 +12,10 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -21,32 +24,25 @@ import static org.apache.tinkerpop.gremlin.driver.ApprovalResult.REJECTED_REASON
 class ClientHolderCollection implements Iterable<ClientHolder> {
 
     private final List<ClientHolder> clients = new ArrayList<>();
-    private final EndpointCollection acceptedEndpoints;
     private final EndpointCollection rejectedEndpoints;
 
-    ClientHolderCollection(){
-        this(new EndpointCollection(), new EndpointCollection());
+    ClientHolderCollection() {
+        this(new EndpointCollection());
     }
 
-    ClientHolderCollection(EndpointCollection acceptedEndpoints) {
-        this(acceptedEndpoints, new EndpointCollection());
-    }
-
-    ClientHolderCollection(EndpointCollection acceptedEndpoints,
-                                  EndpointCollection rejectedEndpoints) {
-        this.acceptedEndpoints = acceptedEndpoints;
+    ClientHolderCollection(EndpointCollection rejectedEndpoints) {
         this.rejectedEndpoints = rejectedEndpoints;
     }
 
-    public void add(ClientHolder clientHolder){
+    public void add(ClientHolder clientHolder) {
         clients.add(clientHolder);
     }
 
-    public ClientHolder get(int index){
+    public ClientHolder get(int index) {
         return clients.get(index);
     }
 
-    public int size(){
+    public int size() {
         return clients.size();
     }
 
@@ -59,7 +55,7 @@ class ClientHolderCollection implements Iterable<ClientHolder> {
         return clients.iterator();
     }
 
-    public Stream<ClientHolder> stream(){
+    public Stream<ClientHolder> stream() {
         return clients.stream();
     }
 

@@ -417,7 +417,7 @@ public class NeptuneGremlinClusterBuilder {
 
             IamAuthConfig.IamAuthConfigBuilder iamAuthConfigBuilder =
                     IamAuthConfig.builder()
-                            .addNeptuneEndpoints(filteredEndpoints.stream().map(Endpoint::getEndpoint).collect(Collectors.toList()))
+                            .addNeptuneEndpoints(filteredEndpoints.stream().map(Endpoint::getAddress).collect(Collectors.toList()))
                             .setNeptunePort(port)
                             .setServiceRegion(serviceRegion)
                             .setIamProfile(iamProfile)

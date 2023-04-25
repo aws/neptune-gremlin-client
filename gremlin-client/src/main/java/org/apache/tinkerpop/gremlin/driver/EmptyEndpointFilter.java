@@ -12,20 +12,16 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import org.apache.tinkerpop.gremlin.driver.ApprovalResult;
-import org.apache.tinkerpop.gremlin.driver.AvailableEndpointFilter;
-import org.apache.tinkerpop.gremlin.driver.Endpoint;
-
 public class EmptyEndpointFilter implements AvailableEndpointFilter {
     private final AvailableEndpointFilter innerFilter;
 
     public EmptyEndpointFilter(AvailableEndpointFilter innerFilter) {
-        this.innerFilter = innerFilter;
+        this.innerFilter = innerFilter != null ? innerFilter : AvailableEndpointFilter.NULL_ENDPOINT_FILTER;
     }
 
     @Override
     public ApprovalResult approveEndpoint(Endpoint endpoint) {
-        if (endpoint.getEndpoint() == null) {
+        if (endpoint.getAddress() == null) {
             return new ApprovalResult(false, "empty");
         } else {
             return innerFilter.approveEndpoint(endpoint);
@@ -34,7 +30,7 @@ public class EmptyEndpointFilter implements AvailableEndpointFilter {
 
     @Override
     public Endpoint enrichEndpoint(Endpoint endpoint) {
-        if (endpoint.getEndpoint() == null) {
+        if (endpoint.getAddress() == null) {
             return endpoint;
         } else {
             return innerFilter.enrichEndpoint(endpoint);

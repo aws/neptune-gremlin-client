@@ -76,6 +76,6 @@ public class EndpointCollection implements Iterable<Endpoint> {
     }
 
     private String computeKey(Endpoint endpoint) {
-        return endpoint.getEndpoint() != null ? endpoint.getEndpoint() : String.valueOf(endpoint.hashCode());
+        return endpoint.getAddress() != null ? endpoint.getAddress() : String.valueOf(endpoint.hashCode());
     }
 }

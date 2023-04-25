@@ -524,7 +524,7 @@ public class GremlinClusterBuilder {
 
     public GremlinClusterBuilder addContactPoint(final Endpoint endpoint) {
         try {
-            InetAddress.getByName(endpoint.getEndpoint());
+            InetAddress.getByName(endpoint.getAddress());
             this.endpoints.add(endpoint);
             return this;
         } catch (UnknownHostException e) {
@@ -568,7 +568,7 @@ public class GremlinClusterBuilder {
     }
 
     List<InetSocketAddress> getContactPoints() {
-        return endpoints.stream().map(e -> new InetSocketAddress(e.getEndpoint(), port)).collect(Collectors.toList());
+        return endpoints.stream().map(e -> new InetSocketAddress(e.getAddress(), port)).collect(Collectors.toList());
     }
 
     public GremlinCluster create() {

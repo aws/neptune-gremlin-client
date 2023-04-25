@@ -22,7 +22,7 @@ public class NeptuneInstanceMetadata implements Endpoint {
     private static final Collection<String> AVAILABLE_STATES = Arrays.asList("available", "backing-up", "modifying", "upgrading");
     private String instanceId;
     private String role;
-    private String endpoint;
+    private String address;
     private String status;
     private String availabilityZone;
     private String instanceType;
@@ -42,8 +42,8 @@ public class NeptuneInstanceMetadata implements Endpoint {
         this.role = role;
     }
 
-    public void setEndpoint(String endpoint) {
-        this.endpoint = endpoint;
+    public void setAddress(String address) {
+        this.address = address;
     }
 
     public void setStatus(String status) {
@@ -84,7 +84,7 @@ public class NeptuneInstanceMetadata implements Endpoint {
     }
 
     public NeptuneInstanceMetadata withEndpoint(String endpoint) {
-        setEndpoint(endpoint);
+        setAddress(endpoint);
         return this;
     }
 
@@ -127,8 +127,8 @@ public class NeptuneInstanceMetadata implements Endpoint {
     }
 
     @Override
-    public String getEndpoint() {
-        return endpoint;
+    public String getAddress() {
+        return address;
     }
 
     public String getStatus() {
@@ -172,7 +172,7 @@ public class NeptuneInstanceMetadata implements Endpoint {
 
     @JsonIgnore
     public boolean isAvailable() {
-        return endpoint != null && AVAILABLE_STATES.contains(getStatus().toLowerCase());
+        return address != null && AVAILABLE_STATES.contains(getStatus().toLowerCase());
     }
     @JsonIgnore
     public boolean isPrimary() {
@@ -189,7 +189,7 @@ public class NeptuneInstanceMetadata implements Endpoint {
         return "NeptuneEndpointMetadata{" +
                 "instanceId='" + instanceId + '\'' +
                 ", role='" + role + '\'' +
-                ", endpoint='" + endpoint + '\'' +
+                ", address='" + address + '\'' +
                 ", status='" + status + '\'' +
                 ", availabilityZone='" + availabilityZone + '\'' +
                 ", instanceType='" + instanceType + '\'' +

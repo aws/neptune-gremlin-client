@@ -39,7 +39,7 @@ public class GremlinCluster implements AutoCloseable {
                           EndpointStrategies endpointStrategies,
                           AcquireConnectionConfig acquireConnectionConfig) {
         logger.info("Created GremlinCluster, defaultEndpoints: {}", defaultEndpoints.stream()
-                .map(Endpoint::getEndpoint)
+                .map(Endpoint::getAddress)
                 .collect(Collectors.toList()) );
         this.defaultEndpoints = defaultEndpoints;
         this.clusterBuilder = clusterBuilder;
@@ -59,7 +59,7 @@ public class GremlinCluster implements AutoCloseable {
     public GremlinClient connectToEndpoints(Collection<Endpoint> endpoints, Client.Settings settings) {
 
         logger.info("Connecting with: {}", endpoints.stream()
-                .map(Endpoint::getEndpoint)
+                .map(Endpoint::getAddress)
                 .collect(Collectors.toList()));
 
         if (endpoints.isEmpty()){
@@ -69,12 +69,12 @@ public class GremlinCluster implements AutoCloseable {
         Cluster parentCluster = clusterBuilder.apply(null);
 
         GremlinClusterCollection clusterCollection = new GremlinClusterCollection(parentCluster);
-        ClientHolderCollection clientHolders = new ClientHolderCollection(new EndpointCollection(endpoints));
+        ClientHolderCollection clientHolders = new ClientHolderCollection();
 
         for (Endpoint endpoint : endpoints) {
-            Cluster cluster = clusterBuilder.apply(Collections.singletonList(endpoint.getEndpoint()));
-            clientHolders.add(new ClientHolder(endpoint.getEndpoint(), cluster.connect()));
-            clusterCollection.add(endpoint.getEndpoint(), cluster);
+            Cluster cluster = clusterBuilder.apply(Collections.singletonList(endpoint.getAddress()));
+            clientHolders.add(new ClientHolder(endpoint.getAddress(), cluster.connect()));
+            clusterCollection.add(endpoint.getAddress(), cluster);
         }
 
         clusterCollections.add(clusterCollection);

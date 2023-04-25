@@ -22,18 +22,18 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 
 class ClientHolder {
-    private final String endpoint;
+    private final String address;
     private final Client client;
 
     private static final Logger logger = LoggerFactory.getLogger(ClientHolder.class);
 
-    ClientHolder(String endpoint, Client client) {
-        this.endpoint = endpoint;
+    ClientHolder(String address, Client client) {
+        this.address = address;
         this.client = client;
     }
 
-    public String getEndpoint() {
-        return endpoint;
+    public String getAddress() {
+        return address;
     }
 
     public boolean isAvailable() {
@@ -44,19 +44,19 @@ class ClientHolder {
         try {
             Connection connection = client.chooseConnection(msg);
             if (connection.isClosing()) {
-                logger.debug("Connection is closing: {}", endpoint);
+                logger.debug("Connection is closing: {}", address);
                 return null;
             }
             if (connection.isDead()) {
-                logger.debug("Connection is dead: {}", endpoint);
+                logger.debug("Connection is dead: {}", address);
                 return null;
             }
             return connection;
         } catch (NullPointerException e) {
-            logger.debug("NullPointerException: {}", endpoint, e);
+            logger.debug("NullPointerException: {}", address, e);
             return null;
         } catch (NoHostAvailableException e){
-            logger.debug("No connection available: {}", endpoint, e);
+            logger.debug("No connection available: {}", address, e);
             return null;
         }
     }
