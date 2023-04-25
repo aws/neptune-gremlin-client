@@ -12,12 +12,10 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import org.apache.tinkerpop.gremlin.driver.AvailableEndpointFilter;
-
-public class EndpointStrategies {
+class EndpointStrategies {
     private final AvailableEndpointFilter availableEndpointFilter;
 
-    public EndpointStrategies(AvailableEndpointFilter availableEndpointFilter) {
+    EndpointStrategies(AvailableEndpointFilter availableEndpointFilter) {
         this.availableEndpointFilter = availableEndpointFilter;
     }
 

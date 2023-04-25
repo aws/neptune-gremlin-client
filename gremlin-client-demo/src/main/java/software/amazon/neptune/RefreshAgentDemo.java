@@ -28,7 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.neptune.cluster.ClusterEndpointsRefreshAgent;
 import software.amazon.neptune.cluster.EndpointsType;
-import software.amazon.neptune.cluster.GetEndpointsFromNeptuneManagementApi;
 import software.amazon.neptune.cluster.NeptuneGremlinClusterBuilder;
 import software.amazon.utils.RegionUtils;
 
@@ -149,13 +148,7 @@ public class RefreshAgentDemo implements Runnable {
     private ClusterEndpointsRefreshAgent createRefreshAgent() {
 
         if (StringUtils.isNotEmpty(clusterId)) {
-            GetEndpointsFromNeptuneManagementApi fetchStrategy = new GetEndpointsFromNeptuneManagementApi(
-                    clusterId,
-                    RegionUtils.getCurrentRegionName(),
-                    profile
-            );
-
-            return new ClusterEndpointsRefreshAgent(fetchStrategy);
+            return ClusterEndpointsRefreshAgent.managementApi(clusterId, RegionUtils.getCurrentRegionName(), profile);
         } else if (StringUtils.isNotEmpty(lambdaProxy)) {
             return ClusterEndpointsRefreshAgent.lambdaProxy(lambdaProxy, RegionUtils.getCurrentRegionName(), profile);
         } else {

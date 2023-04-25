@@ -18,21 +18,21 @@ import java.util.stream.Stream;
 
 import static org.apache.tinkerpop.gremlin.driver.ApprovalResult.REJECTED_REASON_ANNOTATION;
 
-public class ClientHolderCollection implements Iterable<ClientHolder> {
+class ClientHolderCollection implements Iterable<ClientHolder> {
 
     private final List<ClientHolder> clients = new ArrayList<>();
     private final EndpointCollection acceptedEndpoints;
     private final EndpointCollection rejectedEndpoints;
 
-    public ClientHolderCollection(){
+    ClientHolderCollection(){
         this(new EndpointCollection(), new EndpointCollection());
     }
 
-    public ClientHolderCollection(EndpointCollection acceptedEndpoints) {
+    ClientHolderCollection(EndpointCollection acceptedEndpoints) {
         this(acceptedEndpoints, new EndpointCollection());
     }
 
-    public ClientHolderCollection(EndpointCollection acceptedEndpoints,
+    ClientHolderCollection(EndpointCollection acceptedEndpoints,
                                   EndpointCollection rejectedEndpoints) {
         this.acceptedEndpoints = acceptedEndpoints;
         this.rejectedEndpoints = rejectedEndpoints;

@@ -18,12 +18,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-public class GremlinClusterCollection {
+class GremlinClusterCollection {
     private final Cluster parentCluster;
     private final Map<String, Cluster> clusters = new ConcurrentHashMap<>();
     private final AtomicReference<CompletableFuture<Void>> closing = new AtomicReference<>(null);
 
-    public GremlinClusterCollection(Cluster parentCluster) {
+    GremlinClusterCollection(Cluster parentCluster) {
         this.parentCluster = parentCluster;
     }
 

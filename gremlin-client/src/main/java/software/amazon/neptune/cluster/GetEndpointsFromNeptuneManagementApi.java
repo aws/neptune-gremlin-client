@@ -28,7 +28,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-public class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrategy, ClusterMetadataSupplier {
+class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrategy, ClusterMetadataSupplier {
 
     private static final Logger logger = LoggerFactory.getLogger(GetEndpointsFromNeptuneManagementApi.class);
 
@@ -42,30 +42,30 @@ public class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFet
 
     private final ClientConfiguration clientConfiguration;
 
-    public GetEndpointsFromNeptuneManagementApi(String clusterId) {
+    GetEndpointsFromNeptuneManagementApi(String clusterId) {
         this(clusterId, RegionUtils.getCurrentRegionName());
     }
 
 
-    public GetEndpointsFromNeptuneManagementApi(String clusterId, String region) {
+    GetEndpointsFromNeptuneManagementApi(String clusterId, String region) {
         this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE);
     }
 
 
-    public GetEndpointsFromNeptuneManagementApi(String clusterId, String region, String iamProfile) {
+    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, String iamProfile) {
         this(clusterId, region, iamProfile, null, null);
     }
 
-    public GetEndpointsFromNeptuneManagementApi(String clusterId, String region, String iamProfile, ClientConfiguration clientConfiguration) {
+    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, String iamProfile, ClientConfiguration clientConfiguration) {
         this(clusterId, region, iamProfile, null, clientConfiguration);
     }
 
 
-    public GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AWSCredentialsProvider credentials) {
+    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AWSCredentialsProvider credentials) {
         this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, null);
     }
 
-    public GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AWSCredentialsProvider credentials, ClientConfiguration clientConfiguration) {
+    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AWSCredentialsProvider credentials, ClientConfiguration clientConfiguration) {
         this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, clientConfiguration);
     }
 

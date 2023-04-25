@@ -28,7 +28,10 @@ import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Transaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.neptune.cluster.*;
+import software.amazon.neptune.cluster.ClusterEndpointsRefreshAgent;
+import software.amazon.neptune.cluster.EndpointsSelector;
+import software.amazon.neptune.cluster.EndpointsType;
+import software.amazon.neptune.cluster.NeptuneGremlinClusterBuilder;
 import software.amazon.utils.RegionUtils;
 
 import java.util.UUID;
@@ -155,13 +158,7 @@ public class TxDemo implements Runnable {
     private ClusterEndpointsRefreshAgent createRefreshAgent() {
 
         if (StringUtils.isNotEmpty(clusterId)) {
-            GetEndpointsFromNeptuneManagementApi fetchStrategy = new GetEndpointsFromNeptuneManagementApi(
-                    clusterId,
-                    RegionUtils.getCurrentRegionName(),
-                    profile
-            );
-
-            return new ClusterEndpointsRefreshAgent(fetchStrategy);
+            return ClusterEndpointsRefreshAgent.managementApi(clusterId, RegionUtils.getCurrentRegionName(), profile);
         } else if (StringUtils.isNotEmpty(lambdaProxy)) {
             return ClusterEndpointsRefreshAgent.lambdaProxy(lambdaProxy, RegionUtils.getCurrentRegionName(), profile);
         } else {

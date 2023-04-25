@@ -12,7 +12,7 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-public class AcquireConnectionConfig {
+class AcquireConnectionConfig {
 
     private final int maxWaitForConnection;
     private final int eagerRefreshWaitTimeMillis;
@@ -20,7 +20,7 @@ public class AcquireConnectionConfig {
     private final int eagerRefreshBackoffMillis;
     private final int acquireConnectionBackoffMillis;
 
-    public AcquireConnectionConfig(int maxWaitForConnection,
+    AcquireConnectionConfig(int maxWaitForConnection,
                                    int eagerRefreshWaitTimeMillis,
                                    OnEagerRefresh onEagerRefresh,
                                    int eagerRefreshBackoffMillis,

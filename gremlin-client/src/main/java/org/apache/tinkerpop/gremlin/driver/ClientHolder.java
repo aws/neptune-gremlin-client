@@ -27,7 +27,7 @@ class ClientHolder {
 
     private static final Logger logger = LoggerFactory.getLogger(ClientHolder.class);
 
-    public ClientHolder(String endpoint, Client client) {
+    ClientHolder(String endpoint, Client client) {
         this.endpoint = endpoint;
         this.client = client;
     }

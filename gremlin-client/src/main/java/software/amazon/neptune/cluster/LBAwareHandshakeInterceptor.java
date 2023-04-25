@@ -26,14 +26,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.utils.RegionUtils;
 
-public class LBAwareHandshakeInterceptor implements HandshakeInterceptor {
+class LBAwareHandshakeInterceptor implements HandshakeInterceptor {
 
     private static final Logger logger = LoggerFactory.getLogger(LBAwareHandshakeInterceptor.class);
 
     private final IamAuthConfig iamAuthConfig;
     private final String serviceRegion;
 
-    public LBAwareHandshakeInterceptor(IamAuthConfig iamAuthConfig) {
+    LBAwareHandshakeInterceptor(IamAuthConfig iamAuthConfig) {
         this.iamAuthConfig = iamAuthConfig;
         this.serviceRegion = getServiceRegion();
     }

@@ -41,7 +41,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class GetEndpointsFromLambdaProxy implements ClusterEndpointsFetchStrategy, ClusterMetadataSupplier {
+class GetEndpointsFromLambdaProxy implements ClusterEndpointsFetchStrategy, ClusterMetadataSupplier {
 
     private static final Logger logger = LoggerFactory.getLogger(GetEndpointsFromLambdaProxy.class);
 
@@ -54,30 +54,30 @@ public class GetEndpointsFromLambdaProxy implements ClusterEndpointsFetchStrateg
     private final AtomicReference<NeptuneClusterMetadata> cachedClusterMetadata = new AtomicReference<>();
     private final AtomicLong lastRefreshTime = new AtomicLong(System.currentTimeMillis());
 
-    public GetEndpointsFromLambdaProxy(String lambdaName) {
+    GetEndpointsFromLambdaProxy(String lambdaName) {
         this(lambdaName, RegionUtils.getCurrentRegionName());
     }
 
 
-    public GetEndpointsFromLambdaProxy(String lambdaName, String region) {
+    GetEndpointsFromLambdaProxy(String lambdaName, String region) {
         this(lambdaName, region, IamAuthConfig.DEFAULT_PROFILE);
     }
 
 
-    public GetEndpointsFromLambdaProxy(String lambdaName, String region, String iamProfile) {
+    GetEndpointsFromLambdaProxy(String lambdaName, String region, String iamProfile) {
         this(lambdaName, region, iamProfile, null, null);
     }
 
-    public GetEndpointsFromLambdaProxy(String lambdaName, String region, String iamProfile, ClientConfiguration clientConfiguration) {
+    GetEndpointsFromLambdaProxy(String lambdaName, String region, String iamProfile, ClientConfiguration clientConfiguration) {
         this(lambdaName, region, iamProfile, null, clientConfiguration);
     }
 
 
-    public GetEndpointsFromLambdaProxy(String lambdaName, String region, AWSCredentialsProvider credentials) {
+    GetEndpointsFromLambdaProxy(String lambdaName, String region, AWSCredentialsProvider credentials) {
         this(lambdaName, region, IamAuthConfig.DEFAULT_PROFILE, credentials, null);
     }
 
-    public GetEndpointsFromLambdaProxy(String lambdaName, String region, AWSCredentialsProvider credentials, ClientConfiguration clientConfiguration) {
+    GetEndpointsFromLambdaProxy(String lambdaName, String region, AWSCredentialsProvider credentials, ClientConfiguration clientConfiguration) {
         this(lambdaName, region, IamAuthConfig.DEFAULT_PROFILE, credentials, clientConfiguration);
     }
 

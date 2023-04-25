@@ -18,11 +18,11 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-public class CommonClusterEndpointsFetchStrategy implements ClusterEndpointsFetchStrategy {
+class CommonClusterEndpointsFetchStrategy implements ClusterEndpointsFetchStrategy {
 
     private final ClusterMetadataSupplier clusterMetadataSupplier;
 
-    public CommonClusterEndpointsFetchStrategy(ClusterMetadataSupplier clusterMetadataSupplier) {
+    CommonClusterEndpointsFetchStrategy(ClusterMetadataSupplier clusterMetadataSupplier) {
         this.clusterMetadataSupplier = clusterMetadataSupplier;
     }
 

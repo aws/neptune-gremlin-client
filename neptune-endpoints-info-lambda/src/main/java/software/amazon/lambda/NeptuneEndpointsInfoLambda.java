@@ -47,13 +47,9 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
 
     public NeptuneEndpointsInfoLambda(String clusterId, int pollingIntervalSeconds, String suspendedEndpoints) {
 
-        GetEndpointsFromNeptuneManagementApi fetchStrategy =
-                new GetEndpointsFromNeptuneManagementApi(
-                        clusterId,
-                        RegionUtils.getCurrentRegionName(),
-                        new DefaultAWSCredentialsProviderChain());
-
-        this.refreshAgent = new ClusterEndpointsRefreshAgent(fetchStrategy);
+        this.refreshAgent = ClusterEndpointsRefreshAgent.managementApi(clusterId,
+                RegionUtils.getCurrentRegionName(),
+                new DefaultAWSCredentialsProviderChain());
         this.neptuneClusterMetadata.set(refreshAgent.getClusterMetadata());
         this.suspendedEndpoints = suspendedEndpoints.toLowerCase();
 

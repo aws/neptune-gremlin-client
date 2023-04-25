@@ -16,9 +16,7 @@ import java.util.Map;
 
 public interface Endpoint {
     String getEndpoint();
-
     boolean isAvailable();
     Map<String, String> getAnnotations();
-
     void setAnnotation(String key, String value);
 }
