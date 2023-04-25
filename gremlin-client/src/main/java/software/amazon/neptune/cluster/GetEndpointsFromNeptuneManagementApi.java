@@ -19,6 +19,7 @@ import com.amazonaws.services.neptune.AmazonNeptune;
 import com.amazonaws.services.neptune.AmazonNeptuneClientBuilder;
 import com.amazonaws.services.neptune.model.*;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.utils.RegionUtils;

@@ -13,6 +13,7 @@ import com.github.rvesse.airline.annotations.restrictions.Port;
 import com.github.rvesse.airline.annotations.restrictions.PortType;
 import com.github.rvesse.airline.annotations.restrictions.RequireOnlyOne;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.tinkerpop.gremlin.driver.ClusterContext;
 import org.apache.tinkerpop.gremlin.driver.GremlinClient;
 import org.apache.tinkerpop.gremlin.driver.GremlinCluster;
 import org.apache.tinkerpop.gremlin.driver.remote.DriverRemoteConnection;
@@ -73,7 +74,7 @@ public class RetryDemo implements Runnable {
 
     @Option(name = {"--profile"}, description = "Credentials profile")
     @Once
-    private String profile = IamAuthConfig.DEFAULT_PROFILE;
+    private String profile = "default";
 
     @Option(name = {"--service-region"}, description = "Neptune service region")
     @Once

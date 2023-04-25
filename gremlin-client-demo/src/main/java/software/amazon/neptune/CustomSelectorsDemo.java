@@ -19,8 +19,10 @@ import com.github.rvesse.airline.annotations.restrictions.Port;
 import com.github.rvesse.airline.annotations.restrictions.PortType;
 import com.github.rvesse.airline.annotations.restrictions.RequireOnlyOne;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 import org.apache.tinkerpop.gremlin.driver.GremlinClient;
 import org.apache.tinkerpop.gremlin.driver.GremlinCluster;
+import org.apache.tinkerpop.gremlin.driver.RefreshTask;
 import org.apache.tinkerpop.gremlin.driver.remote.DriverRemoteConnection;
 import org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
@@ -74,7 +76,7 @@ public class CustomSelectorsDemo implements Runnable {
 
     @Option(name = {"--profile"}, description = "Credentials profile")
     @Once
-    private String profile = IamAuthConfig.DEFAULT_PROFILE;
+    private String profile = "default";
 
     @Option(name = {"--service-region"}, description = "Neptune service region")
     @Once

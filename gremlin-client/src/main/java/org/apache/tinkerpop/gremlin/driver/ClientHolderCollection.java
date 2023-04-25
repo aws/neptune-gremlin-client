@@ -12,13 +12,11 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import software.amazon.neptune.cluster.EndpointCollection;
-
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static software.amazon.neptune.cluster.ApprovalResult.REJECTED_REASON_ANNOTATION;
+import static org.apache.tinkerpop.gremlin.driver.ApprovalResult.REJECTED_REASON_ANNOTATION;
 
 public class ClientHolderCollection implements Iterable<ClientHolder> {
 

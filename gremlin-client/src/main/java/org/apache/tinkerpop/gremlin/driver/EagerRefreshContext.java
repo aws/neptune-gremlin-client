@@ -10,16 +10,7 @@ express or implied. See the License for the specific language governing
 permissions and limitations under the License.
 */
 
-package software.amazon.neptune.cluster;
+package org.apache.tinkerpop.gremlin.driver;
 
-public class EndpointStrategies {
-    private final AvailableEndpointFilter availableEndpointFilter;
-
-    public EndpointStrategies(AvailableEndpointFilter availableEndpointFilter) {
-        this.availableEndpointFilter = availableEndpointFilter;
-    }
-
-    public AvailableEndpointFilter availableEndpointFilter() {
-        return availableEndpointFilter;
-    }
+public class EagerRefreshContext {
 }

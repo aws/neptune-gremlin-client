@@ -10,15 +10,18 @@ express or implied. See the License for the specific language governing
 permissions and limitations under the License.
 */
 
-package software.amazon.neptune.cluster;
+package org.apache.tinkerpop.gremlin.driver;
 
-import java.util.Map;
+import org.apache.tinkerpop.gremlin.driver.AvailableEndpointFilter;
 
-public interface Endpoint {
-    String getEndpoint();
+public class EndpointStrategies {
+    private final AvailableEndpointFilter availableEndpointFilter;
 
-    boolean isAvailable();
-    Map<String, String> getAnnotations();
+    public EndpointStrategies(AvailableEndpointFilter availableEndpointFilter) {
+        this.availableEndpointFilter = availableEndpointFilter;
+    }
 
-    void setAnnotation(String key, String value);
+    public AvailableEndpointFilter availableEndpointFilter() {
+        return availableEndpointFilter;
+    }
 }

@@ -10,7 +10,7 @@ express or implied. See the License for the specific language governing
 permissions and limitations under the License.
 */
 
-package software.amazon.neptune.cluster;
+package org.apache.tinkerpop.gremlin.driver;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -70,7 +70,7 @@ public class EndpointCollection implements Iterable<Endpoint> {
 
     @Override
     public String toString() {
-        return "EndpointMetadataCollection{" +
+        return "EndpointCollection{" +
                 "endpointMetadata=" + endpointMetadata +
                 '}';
     }

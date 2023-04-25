@@ -14,7 +14,6 @@ package org.apache.tinkerpop.gremlin.driver;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.neptune.cluster.*;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;

@@ -16,7 +16,6 @@ import org.apache.tinkerpop.gremlin.driver.exception.ConnectionException;
 import org.apache.tinkerpop.gremlin.driver.message.RequestMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.neptune.cluster.*;
 
 import java.net.URI;
 import java.util.*;

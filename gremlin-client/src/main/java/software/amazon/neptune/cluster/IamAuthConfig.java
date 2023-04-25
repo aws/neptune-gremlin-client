@@ -28,7 +28,7 @@ import org.joda.time.DateTime;
 
 import java.util.*;
 
-public class IamAuthConfig {
+class IamAuthConfig {
 
     public static final String DEFAULT_PROFILE = "default";
 
@@ -45,7 +45,7 @@ public class IamAuthConfig {
     private final AWSCredentialsProvider credentials;
     private final Random random = new Random(DateTime.now().getMillis());
 
-    public IamAuthConfig(Collection<String> endpoints,
+    IamAuthConfig(Collection<String> endpoints,
                          int port,
                          boolean connectViaLoadBalancer,
                          boolean removeHostHeaderAfterSigning,

@@ -14,7 +14,6 @@ package org.apache.tinkerpop.gremlin.driver;
 
 import io.netty.handler.ssl.SslContext;
 import org.apache.tinkerpop.gremlin.driver.ser.Serializers;
-import software.amazon.neptune.cluster.*;
 
 import javax.net.ssl.TrustManager;
 import java.net.InetAddress;

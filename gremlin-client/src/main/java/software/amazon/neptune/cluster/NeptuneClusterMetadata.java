@@ -2,6 +2,8 @@ package software.amazon.neptune.cluster;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.tinkerpop.gremlin.driver.DatabaseEndpoint;
+import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 
 import java.io.IOException;
 import java.util.ArrayList;

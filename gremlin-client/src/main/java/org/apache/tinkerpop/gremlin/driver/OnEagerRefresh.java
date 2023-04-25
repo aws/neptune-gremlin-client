@@ -10,10 +10,11 @@ express or implied. See the License for the specific language governing
 permissions and limitations under the License.
 */
 
-package software.amazon.neptune.cluster;
+package org.apache.tinkerpop.gremlin.driver;
 
-public class DeprecatedMethodException extends RuntimeException {
-    public DeprecatedMethodException(Class<?> clazz){
-        super(String.format("Tried to call a deprecated method on the interface %s for which there is no implementation", clazz.getSimpleName()));
-    }
+import org.apache.tinkerpop.gremlin.driver.EagerRefreshContext;
+import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
+
+public interface OnEagerRefresh {
+    EndpointCollection getEndpoints(EagerRefreshContext context);
 }

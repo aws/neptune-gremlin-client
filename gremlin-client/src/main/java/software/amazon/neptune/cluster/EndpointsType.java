@@ -12,10 +12,11 @@ permissions and limitations under the License.
 
 package software.amazon.neptune.cluster;
 
+import org.apache.tinkerpop.gremlin.driver.Endpoint;
+import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;

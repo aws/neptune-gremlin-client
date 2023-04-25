@@ -12,12 +12,13 @@ permissions and limitations under the License.
 
 package software.amazon.neptune;
 
-import com.github.rvesse.airline.annotations.restrictions.*;
-import org.apache.commons.lang3.StringUtils;
-import software.amazon.neptune.cluster.IamAuthConfig;
-import software.amazon.neptune.cluster.*;
 import com.github.rvesse.airline.annotations.Command;
 import com.github.rvesse.airline.annotations.Option;
+import com.github.rvesse.airline.annotations.restrictions.Once;
+import com.github.rvesse.airline.annotations.restrictions.Port;
+import com.github.rvesse.airline.annotations.restrictions.PortType;
+import com.github.rvesse.airline.annotations.restrictions.RequireOnlyOne;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.tinkerpop.gremlin.driver.GremlinClient;
 import org.apache.tinkerpop.gremlin.driver.GremlinCluster;
 import org.apache.tinkerpop.gremlin.driver.remote.DriverRemoteConnection;
@@ -25,6 +26,10 @@ import org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.neptune.cluster.ClusterEndpointsRefreshAgent;
+import software.amazon.neptune.cluster.EndpointsType;
+import software.amazon.neptune.cluster.GetEndpointsFromNeptuneManagementApi;
+import software.amazon.neptune.cluster.NeptuneGremlinClusterBuilder;
 import software.amazon.utils.RegionUtils;
 
 import java.util.List;
@@ -69,7 +74,7 @@ public class RefreshAgentDemo implements Runnable {
 
     @Option(name = {"--profile"}, description = "Credentials profile")
     @Once
-    private String profile = IamAuthConfig.DEFAULT_PROFILE;
+    private String profile = "default";
 
     @Option(name = {"--service-region"}, description = "Neptune service region")
     @Once
@@ -97,7 +102,7 @@ public class RefreshAgentDemo implements Runnable {
                     .maxConnectionPoolSize(3)
                     .port(neptunePort);
 
-            if (StringUtils.isNotEmpty(serviceRegion)){
+            if (StringUtils.isNotEmpty(serviceRegion)) {
                 builder = builder.serviceRegion(serviceRegion);
             }
 
@@ -143,7 +148,7 @@ public class RefreshAgentDemo implements Runnable {
 
     private ClusterEndpointsRefreshAgent createRefreshAgent() {
 
-        if (StringUtils.isNotEmpty(clusterId)){
+        if (StringUtils.isNotEmpty(clusterId)) {
             GetEndpointsFromNeptuneManagementApi fetchStrategy = new GetEndpointsFromNeptuneManagementApi(
                     clusterId,
                     RegionUtils.getCurrentRegionName(),

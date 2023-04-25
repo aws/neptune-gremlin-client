@@ -10,18 +10,12 @@ express or implied. See the License for the specific language governing
 permissions and limitations under the License.
 */
 
-package software.amazon.neptune.cluster;
+package org.apache.tinkerpop.gremlin.driver;
 
-public interface AvailableEndpointFilter {
+import java.util.Collection;
 
-    AvailableEndpointFilter NULL_ENDPOINT_FILTER = new AvailableEndpointFilter() {
-    };
-
-    default ApprovalResult approveEndpoint(Endpoint endpoint) {
-        return new ApprovalResult(true, null);
-    }
-
-    default Endpoint enrichEndpoint(Endpoint endpoint) {
-        return endpoint;
+public class EndpointsUnavailableException extends RuntimeException {
+    public EndpointsUnavailableException(Collection<String> reasons) {
+        super(String.format("%s", reasons.size() == 1 ? reasons.iterator().next() : reasons));
     }
 }

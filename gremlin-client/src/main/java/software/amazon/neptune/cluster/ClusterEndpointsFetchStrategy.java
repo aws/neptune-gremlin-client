@@ -12,12 +12,13 @@ permissions and limitations under the License.
 
 package software.amazon.neptune.cluster;
 
+import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
+
 import java.util.Collection;
 import java.util.Map;
 
 
 public interface ClusterEndpointsFetchStrategy {
     ClusterMetadataSupplier clusterMetadataSupplier();
-
     Map<? extends EndpointsSelector, EndpointCollection> getEndpoints(Collection<? extends EndpointsSelector> selectors, boolean refresh);
 }

@@ -14,13 +14,14 @@ package software.amazon.neptune.cluster;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 import org.apache.tinkerpop.gremlin.driver.GremlinClient;
+import org.apache.tinkerpop.gremlin.driver.RefreshTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.utils.RegionUtils;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;

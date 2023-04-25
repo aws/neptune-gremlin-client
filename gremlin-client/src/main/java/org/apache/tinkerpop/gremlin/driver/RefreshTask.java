@@ -10,9 +10,9 @@ express or implied. See the License for the specific language governing
 permissions and limitations under the License.
 */
 
-package software.amazon.neptune.cluster;
+package org.apache.tinkerpop.gremlin.driver;
 
-import org.apache.tinkerpop.gremlin.driver.GremlinClient;
+import software.amazon.neptune.cluster.EndpointsSelector;
 
 public class RefreshTask {
     public static <T extends EndpointsSelector> RefreshTask refresh(GremlinClient client, T selector){

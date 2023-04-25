@@ -29,6 +29,7 @@ import com.evanlennick.retry4j.config.RetryConfigBuilder;
 import com.evanlennick.retry4j.exception.UnexpectedException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.utils.RegionUtils;

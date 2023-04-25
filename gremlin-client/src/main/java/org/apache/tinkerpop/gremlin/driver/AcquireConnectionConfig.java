@@ -10,11 +10,7 @@ express or implied. See the License for the specific language governing
 permissions and limitations under the License.
 */
 
-package software.amazon.neptune.cluster;
-
-import org.apache.tinkerpop.gremlin.driver.GremlinClient;
-
-import java.util.function.Supplier;
+package org.apache.tinkerpop.gremlin.driver;
 
 public class AcquireConnectionConfig {
 

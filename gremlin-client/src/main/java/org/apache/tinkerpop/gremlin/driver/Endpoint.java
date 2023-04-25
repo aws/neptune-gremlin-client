@@ -10,12 +10,15 @@ express or implied. See the License for the specific language governing
 permissions and limitations under the License.
 */
 
-package software.amazon.neptune.cluster;
+package org.apache.tinkerpop.gremlin.driver;
 
-import java.util.Collection;
+import java.util.Map;
 
-public class EndpointsUnavailableException extends RuntimeException {
-    public EndpointsUnavailableException(Collection<String> reasons) {
-        super(String.format("%s", reasons.size() == 1 ? reasons.iterator().next() : reasons));
-    }
+public interface Endpoint {
+    String getEndpoint();
+
+    boolean isAvailable();
+    Map<String, String> getAnnotations();
+
+    void setAnnotation(String key, String value);
 }

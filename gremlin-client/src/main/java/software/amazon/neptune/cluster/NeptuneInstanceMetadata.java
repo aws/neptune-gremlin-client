@@ -13,6 +13,7 @@ permissions and limitations under the License.
 package software.amazon.neptune.cluster;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.tinkerpop.gremlin.driver.Endpoint;
 
 import java.util.*;
 

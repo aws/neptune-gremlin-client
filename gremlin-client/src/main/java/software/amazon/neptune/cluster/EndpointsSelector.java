@@ -12,6 +12,8 @@ permissions and limitations under the License.
 
 package software.amazon.neptune.cluster;
 
+import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
+
 public interface EndpointsSelector {
     EndpointCollection getEndpoints(NeptuneClusterMetadata clusterMetadata);
 }

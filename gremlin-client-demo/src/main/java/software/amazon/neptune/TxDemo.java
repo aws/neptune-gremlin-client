@@ -14,11 +14,13 @@ package software.amazon.neptune;
 
 import com.github.rvesse.airline.annotations.Command;
 import com.github.rvesse.airline.annotations.Option;
-import com.github.rvesse.airline.annotations.restrictions.*;
+import com.github.rvesse.airline.annotations.restrictions.Once;
+import com.github.rvesse.airline.annotations.restrictions.Port;
+import com.github.rvesse.airline.annotations.restrictions.PortType;
+import com.github.rvesse.airline.annotations.restrictions.RequireOnlyOne;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.tinkerpop.gremlin.driver.GremlinClient;
 import org.apache.tinkerpop.gremlin.driver.GremlinCluster;
-import software.amazon.neptune.cluster.IamAuthConfig;
 import org.apache.tinkerpop.gremlin.driver.remote.DriverRemoteConnection;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
@@ -71,7 +73,7 @@ public class TxDemo implements Runnable {
 
     @Option(name = {"--profile"}, description = "Credentials profile")
     @Once
-    private String profile = IamAuthConfig.DEFAULT_PROFILE;
+    private String profile = "default";
 
     @Option(name = {"--service-region"}, description = "Neptune service region")
     @Once
@@ -152,7 +154,7 @@ public class TxDemo implements Runnable {
 
     private ClusterEndpointsRefreshAgent createRefreshAgent() {
 
-        if (StringUtils.isNotEmpty(clusterId)){
+        if (StringUtils.isNotEmpty(clusterId)) {
             GetEndpointsFromNeptuneManagementApi fetchStrategy = new GetEndpointsFromNeptuneManagementApi(
                     clusterId,
                     RegionUtils.getCurrentRegionName(),
