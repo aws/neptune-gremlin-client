@@ -71,7 +71,7 @@ public class GremlinClusterBuilder {
     private int eagerRefreshWaitTimeMillis = -1;
     private int eagerRefreshBackoffMillis = 5000;
     private int acquireConnectionBackoffMillis = 5;
-    private Supplier<EndpointCollection> onEagerRefresh = null;
+    private OnEagerRefresh onEagerRefresh = null;
     private AvailableEndpointFilter availableEndpointFilter;
     private HandshakeInterceptor interceptor = HandshakeInterceptor.NO_OP;
 
@@ -108,7 +108,7 @@ public class GremlinClusterBuilder {
      * Handler to be invoked after {@link #eagerRefreshWaitTimeMillis}.
      * The handler should return a {@link Supplier< EndpointCollection >}.
      */
-    public GremlinClusterBuilder onEagerRefresh(final Supplier<EndpointCollection> eventHandler) {
+    public GremlinClusterBuilder onEagerRefresh(final OnEagerRefresh eventHandler) {
         this.onEagerRefresh = eventHandler;
         return this;
     }

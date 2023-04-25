@@ -82,15 +82,15 @@ cluster.close();
   - [Connecting via a proxy](#connecting-via-a-proxy)
     - [Configuring proxy connections for an IAM auth enabled Neptune database](#configuring-proxy-connections-for-an-iam-auth-enabled-neptune-database)
     - [Removing the Host header before sending a Sigv4 signed request to a proxy](#removing-the-host-header-before-sending-a-sigv4-signed-request-to-a-proxy)
-  - [Transactions](#transactions)
-  - [Good practices](#good-practices)
+  - [Usage](#usage)
     - [Backoff and retry](#backoff-and-retry)
       - [RetryUtils](#retryutils)
       - [Backoff and retry when creating a  GremlinCluster and GremlinClient](#backoff-and-retry-when-creating-a-gremlincluster-and-gremlinclient)
       - [Backoff and retry when submitting a query](#backoff-and-retry-when-submitting-a-query)
     - [Connection timeouts](#connection-timeouts)
       - [Force refresh of endpoints when waiting to acquire a connection](#force-refresh-of-endpoints-when-waiting-to-acquire-a-connection)
-  - [Migrating from version 1 of the Neptune Gremlin Client](#migrating-from-version-1-of-the-neptune-gremlin-client)
+    - [Transactions](#transactions)
+    - [Migrating from version 1 of the Neptune Gremlin Client](#migrating-from-version-1-of-the-neptune-gremlin-client)
   - [Demo](#demo)
     - [CustomSelectorsDemo](#customselectorsdemo)
     - [RefreshAgentDemo](#refreshagentdemo)
@@ -105,7 +105,7 @@ You populate a `GremlinCluster` with one or more endpoints, or contact points, w
 
 The easiest way to automatically refresh the list of endpoints is to use a `ClusterEndpointsRefreshAgent`. The agent can be configured to periodically discover the database cluster's current topology, select a set of endpoints, and update the client.
 
-A `ClusterEndpointsRefreshAgent` can be configured to get the database cluster's topology directly from the Neptune Management API, or from an AWS Lambda proxy function, which fetches and caches the cluster topology from the Management API on behalf of multiple clients. Unless you have a very small number of client instances (1-5) in your application, we recommend using a Lambda proxy to get the cluster toplogy. This reduces the risk of the Management API throttling requests from many clients.
+A `ClusterEndpointsRefreshAgent` can be configured to get the database cluster's topology directly from the [Neptune Management API](https://docs.aws.amazon.com/neptune/latest/userguide/api.html), or from an AWS Lambda proxy function, which fetches and caches the cluster topology from the Management API on behalf of multiple clients. Unless you have a very small number of client instances (1-5) in your application, we recommend using a Lambda proxy to get the cluster toplogy. This reduces the risk of the Management API throttling requests from many clients.
 
 Your application can then use an `EndpointsSelector` to select an appropriate set of endpoints from the current cluster topology.
 
@@ -113,7 +113,7 @@ The following diagram shows how an application can use a `GremlinClient`, `Clust
 
 ![Accessing Neptune using AWS Lambda proxy](lambda-proxy-architecture.png)
 
-The following diagram shows how an application can use a `GremlinClient`, and a `ClusterEndpointsRefreshAgent` that gets cluster topology information directly from the Neptune Management API to access a Neptune database:
+The following diagram shows how an application can use a `GremlinClient`, and a `ClusterEndpointsRefreshAgent` that gets cluster topology information directly from the Neptune Management API, to access a Neptune database:
 
 ![Accessing Neptune using Neptune Management API](management-api-architecture.png)
 
@@ -183,7 +183,7 @@ If you are using the Neptune Gremlin Client in an AWS Lambda function, consider 
 
 The `ClusterEndpointsRefreshAgent` allows you to schedule endpoint updates to a `GremlinClient`. The agent can be configured to periodically discover the database cluster's current topology, select a set of endpoints using an `EndpointsSelector`, and update a client.
 
-A `ClusterEndpointsRefreshAgent` can be configured to get the database cluster's topology directly from the Neptune Management API, or from an AWS Lambda proxy function, which fetches and caches the cluster topology from the Management API on behalf of multiple clients. Unless you have a very small number of client instances (1-5) in your application, we recommend using a Lambda proxy to get the cluster toplogy. This reduces the risk of the Management API throttling requests from many clients.
+A `ClusterEndpointsRefreshAgent` can be configured to get the database cluster's topology directly from the [Neptune Management API](https://docs.aws.amazon.com/neptune/latest/userguide/api.html), or from an AWS Lambda proxy function, which fetches and caches the cluster topology from the Management API on behalf of multiple clients. Unless you have a very small number of client instances (1-5) in your application, we recommend using a Lambda proxy to get the cluster toplogy. This reduces the risk of the Management API throttling requests from many clients.
 
 ### Using an AWS Lambda proxy to retrieve cluster topology
 
@@ -241,7 +241,7 @@ The `EndpointsUnavailableException` will appear as the root cause: invariably, i
 
 ### Using a ClusterEndpointsRefreshAgent to query the Neptune Management API directly
 
-The following example shows how to create a `ClusterEndpointsRefreshAgent` that queries the Neptune Management API to discover the database cluster's current topology. The agent then updates a `GremlinClient` with the current set of read replica endpoints. Notice how the builder's `addContactPoints()` method uses `refreshAgent.getEndpoints(selector)` to get an initial list of endpoints from the refresh agent using the selector.
+The following example shows how to create a `ClusterEndpointsRefreshAgent` that queries the [Neptune Management API](https://docs.aws.amazon.com/neptune/latest/userguide/api.html) to discover the database cluster's current topology. The agent then updates a `GremlinClient` with the current set of read replica endpoints. Notice how the builder's `addContactPoints()` method uses `refreshAgent.getEndpoints(selector)` to get an initial list of endpoints from the refresh agent using the selector.
 
 ```
 EndpointsSelector selector = EndpointsType.ReadReplicas;
@@ -571,55 +571,7 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
         .create();
 ```
 
-## Transactions
-
-The Neptune Gremlin Client supports Gremlin transactions, as long as the transactions are issued against a writer endpoint:
-
-```
-EndpointsType selector = EndpointsType.ClusterEndpoint;
-
-ClusterEndpointsRefreshAgent refreshAgent = 
-        new ClusterEndpointsRefreshAgent("my-cluster-id");
-	
-GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
-        .addContactPoints(refreshAgent.getEndpoints(selector))
-        .create();
-    
-GremlinClient client = cluster.connect();
-
-DriverRemoteConnection connection = DriverRemoteConnection.using(client);
-
-Transaction tx = traversal().withRemote(connection).tx();
-
-GraphTraversalSource g = tx.begin();
-
-try {
-        String id1 = UUID.randomUUID().toString();
-        String id2 = UUID.randomUUID().toString();
-    
-        g.addV("testNode").property(T.id, id1).iterate();
-        g.addV("testNode").property(T.id, id2).iterate();
-        g.addE("testEdge").from(__.V(id1)).to(__.V(id2)).iterate();
-        
-        tx.commit();
-
-} catch (Exception e) {
-    tx.rollback();
-}
-
-
-refreshAgent.close();
-client.close();
-cluster.close();
-```
-
-If you attempt to issue transactions against a read replica, the client returns an error:
-
-```
-org.apache.tinkerpop.gremlin.driver.exception.ResponseException: {"detailedMessage":"Gremlin update operation attempted on a read-only replica.","requestId":"05074a8e-c9ef-42b7-9f3e-1c388cd35ae0","code":"ReadOnlyViolationException"}
-```
-
-## Good practices
+## Usage
 
 ### Backoff and retry
 
@@ -787,7 +739,7 @@ The `NeptuneGremlinClusterBuilder` provides an `eagerRefreshWaitTimeMillis()` bu
 
 By default, `eagerRefreshWaitTimeMillis` is not configured.
 
-If you do configure `eagerRefreshWaitTimeMillis`, you must also supply an event handler using the `onEagerRefresh()` builder method. The handler is simply an instance of `Supplier<EndpointCollection>` – when invoked, it must return an `EndpointCollection`.
+If you do configure `eagerRefreshWaitTimeMillis`, you must also supply an event handler using the `onEagerRefresh()` builder method. The handler is an implementation of the `OnEagerRefresh` interface. Its `getEndpoints()` method is passed an`EagerRefreshContext` (currently empty, but there to hold context information in future versions of the Neptune Gremlin Client) and must return an `EndpointCollection`.
 
 The following example shows how to create a `GremlinClient` that will refresh its endpoints after 5 seconds have passed trying to acquire a connection:
 
@@ -800,7 +752,7 @@ ClusterEndpointsRefreshAgent refreshAgent =
 GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
         .addContactPoints(refreshAgent.getEndpoints(selector))
         .eagerRefreshWaitTimeMillis(5000)
-        .onEagerRefresh(() -> refreshAgent.getEndpoints(selector))
+        .onEagerRefresh(ctx -> refreshAgent.getEndpoints(selector))
         .maxWaitForConnection(20000)
         .create();       
  
@@ -818,7 +770,55 @@ With this setup, then, the `GremlinClient` will refresh its endpoint addresses o
 
 The `eagerRefreshWaitTimeMillis` value is evaluated on a per-request basis. However, a `GremlinClient` is capable of concurrently handling many requests. The client ensures that multiple eager refresh events cannot be triggered at the same time. Further, it imposes a backoff period between eager refresh events, so as to prevent the Neptune Management API or a Lambda proxy being overwhelmed with cluster topology requests. By default, this backoff period is 5 seconds. You can configure it using the `eagerRefreshBackoffMillis()` builder method. 
 
-## Migrating from version 1 of the Neptune Gremlin Client
+### Transactions
+
+The Neptune Gremlin Client supports Gremlin transactions, as long as the transactions are issued against a writer endpoint:
+
+```
+EndpointsType selector = EndpointsType.ClusterEndpoint;
+
+ClusterEndpointsRefreshAgent refreshAgent = 
+        new ClusterEndpointsRefreshAgent("my-cluster-id");
+	
+GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
+        .addContactPoints(refreshAgent.getEndpoints(selector))
+        .create();
+    
+GremlinClient client = cluster.connect();
+
+DriverRemoteConnection connection = DriverRemoteConnection.using(client);
+
+Transaction tx = traversal().withRemote(connection).tx();
+
+GraphTraversalSource g = tx.begin();
+
+try {
+        String id1 = UUID.randomUUID().toString();
+        String id2 = UUID.randomUUID().toString();
+    
+        g.addV("testNode").property(T.id, id1).iterate();
+        g.addV("testNode").property(T.id, id2).iterate();
+        g.addE("testEdge").from(__.V(id1)).to(__.V(id2)).iterate();
+        
+        tx.commit();
+
+} catch (Exception e) {
+    tx.rollback();
+}
+
+
+refreshAgent.close();
+client.close();
+cluster.close();
+```
+
+If you attempt to issue transactions against a read replica, the client returns an error:
+
+```
+org.apache.tinkerpop.gremlin.driver.exception.ResponseException: {"detailedMessage":"Gremlin update operation attempted on a read-only replica.","requestId":"05074a8e-c9ef-42b7-9f3e-1c388cd35ae0","code":"ReadOnlyViolationException"}
+```
+
+### Migrating from version 1 of the Neptune Gremlin Client
 
 Neptune Gremlin Client 2.x.x includes the following breaking changes:
 

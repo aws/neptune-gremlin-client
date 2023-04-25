@@ -20,13 +20,13 @@ public class AcquireConnectionConfig {
 
     private final int maxWaitForConnection;
     private final int eagerRefreshWaitTimeMillis;
-    private final Supplier<EndpointCollection> onEagerRefresh;
+    private final OnEagerRefresh onEagerRefresh;
     private final int eagerRefreshBackoffMillis;
     private final int acquireConnectionBackoffMillis;
 
     public AcquireConnectionConfig(int maxWaitForConnection,
                                    int eagerRefreshWaitTimeMillis,
-                                   Supplier<EndpointCollection> onEagerRefresh,
+                                   OnEagerRefresh onEagerRefresh,
                                    int eagerRefreshBackoffMillis,
                                    int acquireConnectionBackoffMillis) {
         this.maxWaitForConnection = maxWaitForConnection;

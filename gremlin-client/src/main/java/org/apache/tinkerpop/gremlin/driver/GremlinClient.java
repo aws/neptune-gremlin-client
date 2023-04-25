@@ -99,7 +99,7 @@ public class GremlinClient extends Client implements AutoCloseable {
         List<String> addressesToRemove = new ArrayList<>();
 
         for (ClientHolder clientHolder : oldClientHolders) {
-            String address = clientHolder.getAddress();
+            String address = clientHolder.getEndpoint();
             if (acceptedEndpoints.containsAddress(address)) {
                 logger.info("Retaining client for {}", address);
                 newClientHolders.add(clientHolder);
@@ -140,7 +140,6 @@ public class GremlinClient extends Client implements AutoCloseable {
     protected Connection chooseConnection(RequestMessage msg) throws TimeoutException, ConnectionException {
 
         long start = System.currentTimeMillis();
-        int maxWaitForConnection = cluster.connectionPoolSettings().maxWaitForConnection;
 
         logger.debug("Choosing connection");
 
@@ -161,7 +160,7 @@ public class GremlinClient extends Client implements AutoCloseable {
                 }
 
                 if (connectionAttemptManager.eagerRefreshWaitTimeExceeded(start)) {
-                    connectionAttemptManager.triggerEagerRefresh();
+                    connectionAttemptManager.triggerEagerRefresh(new EagerRefreshContext());
                 }
 
                 try {
@@ -183,7 +182,7 @@ public class GremlinClient extends Client implements AutoCloseable {
                 }
 
                 if (connectionAttemptManager.eagerRefreshWaitTimeExceeded(start)) {
-                    connectionAttemptManager.triggerEagerRefresh();
+                    connectionAttemptManager.triggerEagerRefresh(new EagerRefreshContext());
                 }
 
                 try {
@@ -254,8 +253,8 @@ public class GremlinClient extends Client implements AutoCloseable {
 
         return "Client holder queue: " + System.lineSeparator() +
                 clients.get().stream()
-                        .map(c -> String.format("  {address: %s, isAvailable: %s}",
-                                c.getAddress(),
+                        .map(c -> String.format("  {endpoint: %s, isAvailable: %s}",
+                                c.getEndpoint(),
                                 c.isAvailable()))
                         .collect(Collectors.joining(System.lineSeparator())) +
                 System.lineSeparator() +

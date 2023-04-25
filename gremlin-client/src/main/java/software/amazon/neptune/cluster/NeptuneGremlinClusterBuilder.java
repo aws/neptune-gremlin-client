@@ -81,7 +81,7 @@ public class NeptuneGremlinClusterBuilder {
      * Handler to be invoked after {@link #eagerRefreshWaitTimeMillis}.
      * The handler should return a {@link Supplier< EndpointCollection >}.
      */
-    public NeptuneGremlinClusterBuilder onEagerRefresh(final Supplier<EndpointCollection> eventHandler) {
+    public NeptuneGremlinClusterBuilder onEagerRefresh(final OnEagerRefresh eventHandler) {
         innerBuilder.onEagerRefresh(eventHandler);
         return this;
     }

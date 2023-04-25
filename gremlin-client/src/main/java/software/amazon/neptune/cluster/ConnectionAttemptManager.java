@@ -20,8 +20,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.LongUnaryOperator;
-import java.util.function.Supplier;
 
 public class ConnectionAttemptManager {
 
@@ -30,7 +28,7 @@ public class ConnectionAttemptManager {
     private final AtomicLong latestRefreshTime = new AtomicLong(0);
     private final int maxWaitForConnection;
     private final int eagerRefreshWaitTimeMillis;
-    private final Supplier<EndpointCollection> endpointSupplier;
+    private final OnEagerRefresh onEagerRefresh;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final int eagerRefreshBackoffMillis;
 
@@ -39,12 +37,12 @@ public class ConnectionAttemptManager {
     ConnectionAttemptManager(GremlinClient gremlinClient,
                              int maxWaitForConnection,
                              int eagerRefreshWaitTimeMillis,
-                             Supplier<EndpointCollection> onEagerRefresh,
+                             OnEagerRefresh onEagerRefresh,
                              int eagerRefreshBackoffMillis) {
         this.gremlinClient = gremlinClient;
         this.maxWaitForConnection = maxWaitForConnection;
         this.eagerRefreshWaitTimeMillis = eagerRefreshWaitTimeMillis;
-        this.endpointSupplier = onEagerRefresh;
+        this.onEagerRefresh = onEagerRefresh;
         this.eagerRefreshBackoffMillis = eagerRefreshBackoffMillis;
 
         logger.info("maxWaitForConnection: {}, eagerRefreshWaitTimeMillis: {}, eagerRefreshBackoffMillis: {}",
@@ -61,11 +59,11 @@ public class ConnectionAttemptManager {
         return eagerRefreshWaitTimeMillis > 0 && waitTime(start) > eagerRefreshWaitTimeMillis;
     }
 
-    public void triggerEagerRefresh() {
+    public void triggerEagerRefresh(EagerRefreshContext context) {
 
         String message = String.format("Wait time to get connection has exceeded threshold [%s millis]", eagerRefreshWaitTimeMillis);
 
-        if (endpointSupplier == null) {
+        if (onEagerRefresh == null) {
             return;
         }
 
@@ -79,7 +77,8 @@ public class ConnectionAttemptManager {
 
         if (!isRefreshing) {
             logger.warn("{} so getting new endpoints", message);
-            executorService.submit(new RefreshEventTask(gremlinClient, refreshing, latestRefreshTime, endpointSupplier));
+            executorService.submit(
+                    new RefreshEventTask(gremlinClient, refreshing, latestRefreshTime, onEagerRefresh, context));
         } else {
             logger.warn("{} but already refreshing, so not getting new endpoints", message);
         }
@@ -98,16 +97,19 @@ public class ConnectionAttemptManager {
         private final GremlinClient client;
         private final AtomicBoolean refreshing;
         private final AtomicLong latestRefreshTime;
-        private final Supplier<EndpointCollection> endpointSupplier;
+        private final OnEagerRefresh onEagerRefresh;
+        private final EagerRefreshContext context;
 
         private RefreshEventTask(GremlinClient client,
                                  AtomicBoolean refreshing,
                                  AtomicLong latestRefreshTime,
-                                 Supplier<EndpointCollection> endpointSupplier) {
+                                 OnEagerRefresh onEagerRefresh,
+                                 EagerRefreshContext context) {
             this.client = client;
             this.refreshing = refreshing;
             this.latestRefreshTime = latestRefreshTime;
-            this.endpointSupplier = endpointSupplier;
+            this.onEagerRefresh = onEagerRefresh;
+            this.context = context;
         }
 
         @Override
@@ -115,7 +117,7 @@ public class ConnectionAttemptManager {
             boolean allowRefresh = refreshing.compareAndSet(false, true);
 
             if (allowRefresh) {
-                client.refreshEndpoints(endpointSupplier.get());
+                client.refreshEndpoints(onEagerRefresh.getEndpoints(context));
                 refreshing.set(false);
                 latestRefreshTime.getAndUpdate(currentValue -> Math.max(System.currentTimeMillis(), currentValue));
             } else {
