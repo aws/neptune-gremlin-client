@@ -21,10 +21,10 @@ class AcquireConnectionConfig {
     private final int acquireConnectionBackoffMillis;
 
     AcquireConnectionConfig(int maxWaitForConnection,
-                                   int eagerRefreshWaitTimeMillis,
-                                   OnEagerRefresh onEagerRefresh,
-                                   int eagerRefreshBackoffMillis,
-                                   int acquireConnectionBackoffMillis) {
+                            int eagerRefreshWaitTimeMillis,
+                            OnEagerRefresh onEagerRefresh,
+                            int eagerRefreshBackoffMillis,
+                            int acquireConnectionBackoffMillis) {
         this.maxWaitForConnection = maxWaitForConnection;
         this.eagerRefreshWaitTimeMillis = eagerRefreshWaitTimeMillis;
         this.onEagerRefresh = onEagerRefresh;
@@ -32,13 +32,14 @@ class AcquireConnectionConfig {
         this.acquireConnectionBackoffMillis = acquireConnectionBackoffMillis;
     }
 
-    public ConnectionAttemptManager createConnectionAttemptManager(GremlinClient gremlinClient){
+    public ConnectionAttemptManager createConnectionAttemptManager(GremlinClient gremlinClient) {
         return new ConnectionAttemptManager(
                 gremlinClient,
                 maxWaitForConnection,
                 eagerRefreshWaitTimeMillis,
                 onEagerRefresh,
-                eagerRefreshBackoffMillis);
+                eagerRefreshBackoffMillis,
+                () -> System.currentTimeMillis());
     }
 
     public int acquireConnectionBackoffMillis() {

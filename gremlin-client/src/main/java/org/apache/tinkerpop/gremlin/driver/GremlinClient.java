@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class GremlinClient extends Client implements AutoCloseable {
+public class GremlinClient extends Client implements Refreshable, AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(GremlinClient.class);
 
@@ -71,6 +71,7 @@ public class GremlinClient extends Client implements AutoCloseable {
     /**
      * Refreshes the list of endpoint addresses to which the client connects.
      */
+    @Override
     public synchronized void refreshEndpoints(EndpointCollection endpoints) {
 
         if (closing.get() != null) {

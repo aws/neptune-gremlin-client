@@ -14,35 +14,63 @@ package org.apache.tinkerpop.gremlin.driver;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.utils.Clock;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-class ConnectionAttemptManager {
+class ConnectionAttemptManager implements AutoCloseable {
 
-    private final GremlinClient gremlinClient;
-    private final AtomicBoolean refreshing = new AtomicBoolean(false);
-    private final AtomicLong latestRefreshTime = new AtomicLong(0);
+    private final Refreshable client;
+    private final AtomicBoolean refreshing;
+    private final AtomicLong latestRefreshTime;
     private final int maxWaitForConnection;
     private final int eagerRefreshWaitTimeMillis;
     private final OnEagerRefresh onEagerRefresh;
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService;
     private final int eagerRefreshBackoffMillis;
+    private final Clock clock;
 
     private static final Logger logger = LoggerFactory.getLogger(ConnectionAttemptManager.class);
 
-    ConnectionAttemptManager(GremlinClient gremlinClient,
+    ConnectionAttemptManager(Refreshable client,
                              int maxWaitForConnection,
                              int eagerRefreshWaitTimeMillis,
                              OnEagerRefresh onEagerRefresh,
-                             int eagerRefreshBackoffMillis) {
-        this.gremlinClient = gremlinClient;
+                             int eagerRefreshBackoffMillis,
+                             Clock clock) {
+        this(client,
+                maxWaitForConnection,
+                eagerRefreshWaitTimeMillis,
+                onEagerRefresh,
+                eagerRefreshBackoffMillis,
+                clock,
+                Executors.newSingleThreadExecutor(),
+                0,
+                false
+        );
+    }
+
+    ConnectionAttemptManager(Refreshable client,
+                             int maxWaitForConnection,
+                             int eagerRefreshWaitTimeMillis,
+                             OnEagerRefresh onEagerRefresh,
+                             int eagerRefreshBackoffMillis,
+                             Clock clock,
+                             ExecutorService executorService,
+                             long latestRefreshTime,
+                             boolean isRefreshing) {
+        this.client = client;
         this.maxWaitForConnection = maxWaitForConnection;
         this.eagerRefreshWaitTimeMillis = eagerRefreshWaitTimeMillis;
         this.onEagerRefresh = onEagerRefresh;
         this.eagerRefreshBackoffMillis = eagerRefreshBackoffMillis;
+        this.clock = clock;
+        this.executorService = executorService;
+        this.latestRefreshTime = new AtomicLong(latestRefreshTime);
+        this.refreshing = new AtomicBoolean(isRefreshing);
 
         logger.info("maxWaitForConnection: {}, eagerRefreshWaitTimeMillis: {}, eagerRefreshBackoffMillis: {}",
                 this.maxWaitForConnection,
@@ -70,6 +98,7 @@ class ConnectionAttemptManager {
 
         if (lastRefreshTime > 0 && waitTime(lastRefreshTime) < eagerRefreshBackoffMillis) {
             logger.warn("{} but last refresh occurred within backoff interval, so not getting new endpoints", message);
+            return;
         }
 
         boolean isRefreshing = refreshing.get();
@@ -77,38 +106,45 @@ class ConnectionAttemptManager {
         if (!isRefreshing) {
             logger.warn("{} so getting new endpoints", message);
             executorService.submit(
-                    new RefreshEventTask(gremlinClient, refreshing, latestRefreshTime, onEagerRefresh, context));
+                    new RefreshEventTask(context, client, refreshing, latestRefreshTime, onEagerRefresh, clock));
         } else {
             logger.warn("{} but already refreshing, so not getting new endpoints", message);
         }
     }
 
-    private static long waitTime(long start) {
-        return System.currentTimeMillis() - start;
+    private long waitTime(long start) {
+        return clock.currentTimeMillis() - start;
     }
 
     public void shutdownNow() {
         executorService.shutdownNow();
     }
 
-    private static class RefreshEventTask implements Runnable {
+    @Override
+    public void close() throws Exception {
+        shutdownNow();
+    }
 
-        private final GremlinClient client;
+    static class RefreshEventTask implements Runnable {
+        private final EagerRefreshContext context;
+        private final Refreshable client;
         private final AtomicBoolean refreshing;
         private final AtomicLong latestRefreshTime;
         private final OnEagerRefresh onEagerRefresh;
-        private final EagerRefreshContext context;
+        private final Clock clock;
 
-        private RefreshEventTask(GremlinClient client,
-                                 AtomicBoolean refreshing,
-                                 AtomicLong latestRefreshTime,
-                                 OnEagerRefresh onEagerRefresh,
-                                 EagerRefreshContext context) {
+        RefreshEventTask(EagerRefreshContext context,
+                         Refreshable client,
+                         AtomicBoolean refreshing,
+                         AtomicLong latestRefreshTime,
+                         OnEagerRefresh onEagerRefresh,
+                         Clock clock) {
+            this.context = context;
             this.client = client;
             this.refreshing = refreshing;
             this.latestRefreshTime = latestRefreshTime;
             this.onEagerRefresh = onEagerRefresh;
-            this.context = context;
+            this.clock = clock;
         }
 
         @Override
@@ -118,7 +154,7 @@ class ConnectionAttemptManager {
             if (allowRefresh) {
                 client.refreshEndpoints(onEagerRefresh.getEndpoints(context));
                 refreshing.set(false);
-                latestRefreshTime.getAndUpdate(currentValue -> Math.max(System.currentTimeMillis(), currentValue));
+                latestRefreshTime.getAndUpdate(currentValue -> Math.max(clock.currentTimeMillis(), currentValue));
             } else {
                 logger.warn("Already refreshing, so taking no action");
             }
