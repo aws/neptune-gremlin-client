@@ -27,7 +27,7 @@ public class EndpointCollection implements Iterable<Endpoint> {
         return endpoints;
     }
 
-    private final Map<String, Endpoint> endpointMetadata = new HashMap<>();
+    private final Map<String, Endpoint> endpoints = new HashMap<>();
 
     public EndpointCollection() {
     }
@@ -39,39 +39,39 @@ public class EndpointCollection implements Iterable<Endpoint> {
     }
 
     public void addOrReplace(Endpoint endpoint) {
-        endpointMetadata.put(computeKey(endpoint), endpoint);
+        endpoints.put(computeKey(endpoint), endpoint);
     }
 
 
     public boolean containsAddress(String address) {
-        return endpointMetadata.containsKey(address);
+        return endpoints.containsKey(address);
     }
 
     public Collection<String> addresses() {
-        return endpointMetadata.keySet();
+        return endpoints.keySet();
     }
 
     public Collection<Endpoint> endpoints() {
-        return endpointMetadata.values();
+        return endpoints.values();
     }
 
     public Endpoint get(String address) {
-        return endpointMetadata.get(address);
+        return endpoints.get(address);
     }
 
     public boolean isEmpty() {
-        return endpointMetadata.isEmpty();
+        return endpoints.isEmpty();
     }
 
     @Override
     public Iterator<Endpoint> iterator() {
-        return endpointMetadata.values().iterator();
+        return endpoints.values().iterator();
     }
 
     @Override
     public String toString() {
         return "EndpointCollection{" +
-                "endpointMetadata=" + endpointMetadata +
+                "endpoints=" + endpoints +
                 '}';
     }
 

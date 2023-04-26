@@ -69,20 +69,23 @@ public class GremlinCluster implements AutoCloseable {
         Cluster parentCluster = clusterBuilder.apply(null);
 
         GremlinClusterCollection clusterCollection = new GremlinClusterCollection(parentCluster);
-        ClientHolderCollection clientHolders = new ClientHolderCollection();
+        List<EndpointClient> endpointClientList = new ArrayList<>();
 
         for (Endpoint endpoint : endpoints) {
             Cluster cluster = clusterBuilder.apply(Collections.singletonList(endpoint.getAddress()));
-            clientHolders.add(new ClientHolder(endpoint.getAddress(), cluster.connect()));
+            Client client = cluster.connect().init();
+            endpointClientList.add(new EndpointClient(endpoint, client));
             clusterCollection.add(endpoint.getAddress(), cluster);
         }
+
+        EndpointClientCollection endpointClientCollection = new EndpointClientCollection(endpointClientList);
 
         clusterCollections.add(clusterCollection);
 
         return new GremlinClient(
                 clusterCollection.getParentCluster(),
                 settings,
-                clientHolders,
+                endpointClientCollection,
                 clusterCollection,
                 clusterBuilder,
                 endpointStrategies,

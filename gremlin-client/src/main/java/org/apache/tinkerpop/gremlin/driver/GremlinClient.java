@@ -32,7 +32,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
     private static final Logger logger = LoggerFactory.getLogger(GremlinClient.class);
 
-    private final AtomicReference<ClientHolderCollection> clients = new AtomicReference<>(new ClientHolderCollection());
+    private final AtomicReference<EndpointClientCollection> endpointClientCollection = new AtomicReference<>(new EndpointClientCollection());
     private final AtomicLong index = new AtomicLong(0);
     private final AtomicReference<CompletableFuture<Void>> closing = new AtomicReference<>(null);
     private final ConnectionAttemptManager connectionAttemptManager;
@@ -44,14 +44,14 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
     GremlinClient(Cluster cluster,
                   Settings settings,
-                  ClientHolderCollection clients,
+                  EndpointClientCollection endpointClientCollection,
                   GremlinClusterCollection clusterCollection,
                   Function<Collection<String>, Cluster> clusterBuilder,
                   EndpointStrategies endpointStrategies,
                   AcquireConnectionConfig acquireConnectionConfig) {
         super(cluster, settings);
 
-        this.clients.set(clients);
+        this.endpointClientCollection.set(endpointClientCollection);
         this.clusterCollection = clusterCollection;
         this.clusterBuilder = clusterBuilder;
         this.endpointStrategies = endpointStrategies;
@@ -94,18 +94,18 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
             }
         }
 
-        ClientHolderCollection newClientHolders = new ClientHolderCollection(rejectedEndpoints);
+        List<EndpointClient> newEndpointClientList = new ArrayList<>();
 
-        ClientHolderCollection oldClientHolders = clients.get();
+        EndpointClientCollection currentEndpointClientCollection = endpointClientCollection.get();
         List<String> addressesToRemove = new ArrayList<>();
 
-        for (ClientHolder clientHolder : oldClientHolders) {
-            String address = clientHolder.getAddress();
-            if (acceptedEndpoints.containsAddress(address)) {
-                logger.info("Retaining client for {}", address);
-                newClientHolders.add(clientHolder);
+        for (EndpointClient endpointClient : currentEndpointClientCollection) {
+            Endpoint endpoint = endpointClient.endpoint();
+            if (acceptedEndpoints.containsAddress(endpoint.getAddress())) {
+                logger.info("Retaining client for {}", endpoint.getAddress());
+                newEndpointClientList.add(endpointClient);
             } else {
-                addressesToRemove.add(address);
+                addressesToRemove.add(endpoint.getAddress());
             }
         }
 
@@ -114,14 +114,13 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
             if (!clusterCollection.containsAddress(address)) {
                 logger.info("Adding client for {}", address);
                 Cluster cluster = clusterBuilder.apply(Collections.singletonList(address));
-                ClientHolder clientHolder = new ClientHolder(endpoint.getAddress(), cluster.connect());
-                clientHolder.init();
-                newClientHolders.add(clientHolder);
+                Client client = cluster.connect().init();
+                newEndpointClientList.add(new EndpointClient(endpoint, client));
                 clusterCollection.add(address, cluster);
             }
         }
 
-        clients.set(newClientHolders);
+        endpointClientCollection.set(new EndpointClientCollection(rejectedEndpoints, newEndpointClientList));
 
         for (String address : addressesToRemove) {
             logger.info("Removing client for {}", address);
@@ -148,13 +147,13 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
         while (connection == null) {
 
-            ClientHolderCollection currentClientHolders = clients.get();
+            EndpointClientCollection currentEndpointClientCollection = endpointClientCollection.get();
 
-            while (currentClientHolders.isEmpty()) {
+            while (currentEndpointClientCollection.isEmpty()) {
 
                 if (connectionAttemptManager.maxWaitTimeExceeded(start)) {
-                    if (currentClientHolders.hasRejectedEndpoints()) {
-                        throw new EndpointsUnavailableException(currentClientHolders.rejectionReasons());
+                    if (currentEndpointClientCollection.hasRejectedEndpoints()) {
+                        throw new EndpointsUnavailableException(currentEndpointClientCollection.rejectionReasons());
                     } else {
                         throw new TimeoutException("Timed-out waiting for connection");
                     }
@@ -166,15 +165,15 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
                 try {
                     Thread.sleep(acquireConnectionConfig.acquireConnectionBackoffMillis());
-                    currentClientHolders = clients.get();
+                    currentEndpointClientCollection = endpointClientCollection.get();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
             }
 
-            ClientHolder clientHolder = currentClientHolders.get((int) (index.getAndIncrement() % currentClientHolders.size()));
-
-            connection = clientHolder.chooseConnection(msg);
+            connection = currentEndpointClientCollection.chooseConnection(
+                    msg,
+                    ec -> ec.get((int) (index.getAndIncrement() % ec.size())));
 
             if (connection == null) {
 
@@ -224,8 +223,8 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
         executorService.shutdownNow();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
-        for (ClientHolder clientHolder : clients.get()) {
-            futures.add(clientHolder.closeAsync());
+        for (EndpointClient endpointClient : endpointClientCollection.get()) {
+            futures.add(endpointClient.closeClientAsync());
         }
 
         closing.set(CompletableFuture.allOf(futures.toArray(new CompletableFuture[]{})));
@@ -240,9 +239,10 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
         logger.debug("Initializing internal clients");
 
-        for (ClientHolder clientHolder : clients.get()) {
-            clientHolder.init();
+        for (EndpointClient endpointClient : endpointClientCollection.get()) {
+            endpointClient.initClient();
         }
+
         initializeImplementation();
 
         initialized = true;
@@ -253,10 +253,10 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
     public String toString() {
 
         return "Client holder queue: " + System.lineSeparator() +
-                clients.get().stream()
+                endpointClientCollection.get().stream()
                         .map(c -> String.format("  {address: %s, isAvailable: %s}",
-                                c.getAddress(),
-                                c.isAvailable()))
+                                c.endpoint().getAddress(),
+                                !c.client().getCluster().availableHosts().isEmpty()))
                         .collect(Collectors.joining(System.lineSeparator())) +
                 System.lineSeparator() +
                 "Cluster collection: " + System.lineSeparator() +
