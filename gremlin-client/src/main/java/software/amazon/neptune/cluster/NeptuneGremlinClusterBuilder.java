@@ -46,7 +46,7 @@ public class NeptuneGremlinClusterBuilder {
     private String serviceRegion = "";
     private HandshakeInterceptor interceptor = null;
     private AWSCredentialsProvider credentials = null;
-    private AvailableEndpointFilter availableEndpointFilter = new SuspendedEndpoints();
+    private EndpointFilter endpointFilter = new SuspendedEndpoints();
 
     private NeptuneGremlinClusterBuilder() {
     }
@@ -87,10 +87,10 @@ public class NeptuneGremlinClusterBuilder {
     }
 
     /**
-     * Strategy for filtering and enriching available endpoints.
+     * Strategy for filtering and enriching available endpoints before creating clients.
      */
-    public NeptuneGremlinClusterBuilder availableEndpointFilter(AvailableEndpointFilter availableEndpointFilter) {
-        this.availableEndpointFilter = availableEndpointFilter;
+    public NeptuneGremlinClusterBuilder endpointFilter(EndpointFilter endpointFilter) {
+        this.endpointFilter = endpointFilter;
         return this;
     }
 
@@ -299,7 +299,7 @@ public class NeptuneGremlinClusterBuilder {
     }
 
     public NeptuneGremlinClusterBuilder addContactPoints(final EndpointCollection endpointCollection) {
-        for (Endpoint endpoint : endpointCollection.endpoints())
+        for (Endpoint endpoint : endpointCollection)
             addContactPoint(endpoint);
         return this;
     }
@@ -374,10 +374,10 @@ public class NeptuneGremlinClusterBuilder {
         Collection<Endpoint> filteredEndpoints = new ArrayList<>();
         Set<String> rejectedReasons = new HashSet<>();
 
-        if (availableEndpointFilter != null) {
-            innerBuilder.availableEndpointFilter(availableEndpointFilter);
+        if (endpointFilter != null) {
+            innerBuilder.endpointFilter(endpointFilter);
             for (Endpoint endpoint : endpoints) {
-                ApprovalResult approvalResult = availableEndpointFilter.approveEndpoint(endpoint);
+                ApprovalResult approvalResult = endpointFilter.approveEndpoint(endpoint);
                 if (approvalResult.isApproved()) {
                     filteredEndpoints.add(endpoint);
                 } else {

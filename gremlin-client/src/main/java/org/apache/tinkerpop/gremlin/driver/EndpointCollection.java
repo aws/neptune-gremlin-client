@@ -12,20 +12,10 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Stream;
 
 public class EndpointCollection implements Iterable<Endpoint> {
-
-    public static EndpointCollection fromAddresses(Collection<String> addresses) {
-        EndpointCollection endpoints = new EndpointCollection();
-        for (String address : addresses) {
-            endpoints.addOrReplace(new DatabaseEndpoint().withEndpoint(address));
-        }
-        return endpoints;
-    }
 
     private final Map<String, Endpoint> endpoints = new HashMap<>();
 
@@ -38,21 +28,52 @@ public class EndpointCollection implements Iterable<Endpoint> {
         }
     }
 
-    public void addOrReplace(Endpoint endpoint) {
+    public EndpointCollection getEndpointsWithNoCluster(ClientClusterCollection clientClusterCollection) {
+        EndpointCollection results = new EndpointCollection();
+        for (Endpoint endpoint : endpoints.values()) {
+            if (!clientClusterCollection.containsClusterForEndpoint(endpoint)) {
+                results.addOrReplace(endpoint);
+            }
+        }
+        return results;
+    }
+
+    public EndpointCollection getEnrichedEndpoints(EndpointFilter endpointFilter) {
+        EndpointCollection results = new EndpointCollection();
+        for (Endpoint endpoint : endpoints.values()) {
+            results.addOrReplace(endpointFilter.enrichEndpoint(endpoint));
+        }
+        return results;
+    }
+
+    public EndpointCollection getAcceptedEndpoints(EndpointFilter endpointFilter) {
+        EndpointCollection results = new EndpointCollection();
+        for (Endpoint endpoint : endpoints.values()) {
+            ApprovalResult approvalResult = endpointFilter.approveEndpoint(endpoint);
+            if (approvalResult.isApproved()) {
+                results.addOrReplace(endpoint);
+            }
+        }
+        return results;
+    }
+
+    public EndpointCollection getRejectedEndpoints(EndpointFilter endpointFilter) {
+        EndpointCollection results = new EndpointCollection();
+        for (Endpoint endpoint : endpoints.values()) {
+            ApprovalResult approvalResult = endpointFilter.approveEndpoint(endpoint);
+            if (!approvalResult.isApproved()) {
+                results.addOrReplace(approvalResult.enrich(endpoint));
+            }
+        }
+        return results;
+    }
+
+    private void addOrReplace(Endpoint endpoint) {
         endpoints.put(computeKey(endpoint), endpoint);
     }
 
-
-    public boolean containsAddress(String address) {
-        return endpoints.containsKey(address);
-    }
-
-    public Collection<String> addresses() {
-        return endpoints.keySet();
-    }
-
-    public Collection<Endpoint> endpoints() {
-        return endpoints.values();
+    public boolean containsEndpoint(Endpoint endpoint) {
+        return endpoints.containsKey(endpoint.getAddress());
     }
 
     public Endpoint get(String address) {
@@ -66,6 +87,10 @@ public class EndpointCollection implements Iterable<Endpoint> {
     @Override
     public Iterator<Endpoint> iterator() {
         return endpoints.values().iterator();
+    }
+
+    public Stream<Endpoint> stream() {
+        return endpoints.values().stream();
     }
 
     @Override

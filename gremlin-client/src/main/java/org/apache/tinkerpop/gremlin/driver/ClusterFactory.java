@@ -12,14 +12,8 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-class EndpointStrategies {
-    private final EndpointFilter endpointFilter;
+import java.util.Collection;
 
-    EndpointStrategies(EndpointFilter endpointFilter) {
-        this.endpointFilter = endpointFilter;
-    }
-
-    public EndpointFilter endpointFilter() {
-        return endpointFilter;
-    }
+public interface ClusterFactory {
+    Cluster createCluster(Collection<String> addresses);
 }

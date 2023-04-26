@@ -19,7 +19,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class GremlinCluster implements AutoCloseable {
@@ -27,22 +26,22 @@ public class GremlinCluster implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(GremlinCluster.class);
 
     private final Collection<Endpoint> defaultEndpoints;
-    private final Function<Collection<String>, Cluster> clusterBuilder;
-    private final Collection<GremlinClusterCollection> clusterCollections = new CopyOnWriteArrayList<>();
+    private final ClusterFactory clusterFactory;
+    private final Collection<ClientClusterCollection> clientClusterCollections = new CopyOnWriteArrayList<>();
     private final AtomicReference<CompletableFuture<Void>> closing = new AtomicReference<>(null);
     private final EndpointStrategies endpointStrategies;
     private final AcquireConnectionConfig acquireConnectionConfig;
 
 
     public GremlinCluster(Collection<Endpoint> defaultEndpoints,
-                          Function<Collection<String>, Cluster> clusterBuilder,
+                          ClusterFactory clusterFactory,
                           EndpointStrategies endpointStrategies,
                           AcquireConnectionConfig acquireConnectionConfig) {
         logger.info("Created GremlinCluster, defaultEndpoints: {}", defaultEndpoints.stream()
                 .map(Endpoint::getAddress)
                 .collect(Collectors.toList()) );
         this.defaultEndpoints = defaultEndpoints;
-        this.clusterBuilder = clusterBuilder;
+        this.clusterFactory = clusterFactory;
         this.endpointStrategies = endpointStrategies;
         this.acquireConnectionConfig = acquireConnectionConfig;
     }
@@ -66,28 +65,27 @@ public class GremlinCluster implements AutoCloseable {
             throw new IllegalStateException("You must supply at least one endpoint");
         }
 
-        Cluster parentCluster = clusterBuilder.apply(null);
+        Cluster parentCluster = clusterFactory.createCluster(null);
 
-        GremlinClusterCollection clusterCollection = new GremlinClusterCollection(parentCluster);
+        ClientClusterCollection clientClusterCollection = new ClientClusterCollection(clusterFactory, parentCluster);
         List<EndpointClient> endpointClientList = new ArrayList<>();
 
         for (Endpoint endpoint : endpoints) {
-            Cluster cluster = clusterBuilder.apply(Collections.singletonList(endpoint.getAddress()));
+            Cluster cluster = clientClusterCollection.createClusterForEndpoint(endpoint);
             Client client = cluster.connect().init();
             endpointClientList.add(new EndpointClient(endpoint, client));
-            clusterCollection.add(endpoint.getAddress(), cluster);
         }
 
         EndpointClientCollection endpointClientCollection = new EndpointClientCollection(endpointClientList);
 
-        clusterCollections.add(clusterCollection);
+        clientClusterCollections.add(clientClusterCollection);
 
         return new GremlinClient(
-                clusterCollection.getParentCluster(),
+                clientClusterCollection.getParentCluster(),
                 settings,
                 endpointClientCollection,
-                clusterCollection,
-                clusterBuilder,
+                clientClusterCollection,
+                clusterFactory,
                 endpointStrategies,
                 acquireConnectionConfig
         );
@@ -115,8 +113,8 @@ public class GremlinCluster implements AutoCloseable {
             return closing.get();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
-        for (GremlinClusterCollection clusterCollection : clusterCollections) {
-            futures.add(clusterCollection.closeAsync());
+        for (ClientClusterCollection clientClusterCollection : clientClusterCollections) {
+            futures.add(clientClusterCollection.closeAsync());
         }
 
         closing.set(CompletableFuture.allOf(futures.toArray(new CompletableFuture[]{})));

@@ -10,16 +10,16 @@ express or implied. See the License for the specific language governing
 permissions and limitations under the License.
 */
 
-package org.apache.tinkerpop.gremlin.driver;
+package software.amazon.utils;
 
-class EndpointStrategies {
-    private final EndpointFilter endpointFilter;
+import java.util.ArrayList;
+import java.util.List;
 
-    EndpointStrategies(EndpointFilter endpointFilter) {
-        this.endpointFilter = endpointFilter;
-    }
-
-    public EndpointFilter endpointFilter() {
-        return endpointFilter;
+public class CollectionUtils {
+    public static <T> List<T> join(List<T> l1, List<T> l2) {
+        List<T> results = new ArrayList<>();
+        results.addAll(l1);
+        results.addAll(l2);
+        return results;
     }
 }

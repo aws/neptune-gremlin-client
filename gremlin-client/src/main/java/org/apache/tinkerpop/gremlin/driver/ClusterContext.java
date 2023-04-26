@@ -12,8 +12,6 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import org.apache.tinkerpop.gremlin.driver.GremlinClient;
-import org.apache.tinkerpop.gremlin.driver.GremlinCluster;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 
 public class ClusterContext implements AutoCloseable {

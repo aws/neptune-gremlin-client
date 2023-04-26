@@ -13,12 +13,12 @@ permissions and limitations under the License.
 package software.amazon.neptune.cluster;
 
 import org.apache.tinkerpop.gremlin.driver.ApprovalResult;
-import org.apache.tinkerpop.gremlin.driver.AvailableEndpointFilter;
+import org.apache.tinkerpop.gremlin.driver.EndpointFilter;
 import org.apache.tinkerpop.gremlin.driver.Endpoint;
 
 import java.util.Map;
 
-public class SuspendedEndpoints implements AvailableEndpointFilter {
+public class SuspendedEndpoints implements EndpointFilter {
     public static final String STATE_ANNOTATION = "AWS:endpoint_state";
     public static final String SUSPENDED = "suspended";
 

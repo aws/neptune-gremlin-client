@@ -12,31 +12,61 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-class GremlinClusterCollection {
+class ClientClusterCollection {
+
+    private final ClusterFactory clusterFactory;
     private final Cluster parentCluster;
     private final Map<String, Cluster> clusters = new ConcurrentHashMap<>();
     private final AtomicReference<CompletableFuture<Void>> closing = new AtomicReference<>(null);
 
-    GremlinClusterCollection(Cluster parentCluster) {
+    private static final Logger logger = LoggerFactory.getLogger(ClientClusterCollection.class);
+
+    ClientClusterCollection(ClusterFactory clusterFactory, Cluster parentCluster) {
+        this.clusterFactory = clusterFactory;
         this.parentCluster = parentCluster;
     }
 
-    public boolean containsAddress(String address) {
-        return clusters.containsKey(address);
+    public Cluster createClusterForEndpoint(Endpoint endpoint){
+        Cluster cluster = clusterFactory.createCluster(Collections.singletonList(endpoint.getAddress()));
+        clusters.put(endpoint.getAddress(), cluster);
+        return cluster;
     }
 
-    public void add(String address, Cluster cluster) {
-        clusters.put(address, cluster);
+    public Map<Endpoint, Cluster> createClustersForEndpoints(EndpointCollection endpoints){
+        Map<Endpoint, Cluster> results = new HashMap<>();
+        for (Endpoint endpoint : endpoints) {
+            results.put(endpoint, createClusterForEndpoint(endpoint));
+        }
+        return results;
     }
 
-    public Cluster remove(String address) {
-        return clusters.remove(address);
+    public boolean containsClusterForEndpoint(Endpoint endpoint) {
+        return clusters.containsKey(endpoint.getAddress());
+    }
+
+    public void removeClustersWithNoMatchingEndpoint(EndpointCollection endpoints){
+        List<String> removalList = new ArrayList<>();
+        for (String address : clusters.keySet()) {
+            if (!endpoints.containsEndpoint(new DatabaseEndpoint().withEndpoint(address))){
+                removalList.add(address);
+            }
+        }
+        for (String address : removalList) {
+            logger.info("Removing client for {}", address);
+            Cluster cluster = clusters.remove(address);
+            if (cluster != null){
+                cluster.close();
+            }
+        }
     }
 
     public Cluster getParentCluster() {

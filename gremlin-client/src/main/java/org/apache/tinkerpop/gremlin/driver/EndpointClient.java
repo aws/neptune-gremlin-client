@@ -12,13 +12,28 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-public class EndpointClient {
+class EndpointClient {
+
+    public static List<EndpointClient> create(Map<Endpoint, Cluster> endpointClusters){
+        List<EndpointClient> results = new ArrayList<>();
+        for (Map.Entry<Endpoint, Cluster> entry : endpointClusters.entrySet()) {
+            Cluster cluster = entry.getValue();
+            Endpoint endpoint = entry.getKey();
+            Client client = cluster.connect().init();
+            results.add(new EndpointClient(endpoint, client));
+        }
+        return results;
+    }
+
     private final Endpoint endpoint;
     private final Client client;
 
-    public EndpointClient(Endpoint endpoint, Client client) {
+    EndpointClient(Endpoint endpoint, Client client) {
         this.endpoint = endpoint;
         this.client = client;
     }

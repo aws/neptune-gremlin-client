@@ -16,6 +16,7 @@ import org.apache.tinkerpop.gremlin.driver.exception.ConnectionException;
 import org.apache.tinkerpop.gremlin.driver.message.RequestMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.utils.CollectionUtils;
 
 import java.net.URI;
 import java.util.*;
@@ -25,7 +26,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class GremlinClient extends Client implements Refreshable, AutoCloseable {
@@ -36,8 +36,8 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
     private final AtomicLong index = new AtomicLong(0);
     private final AtomicReference<CompletableFuture<Void>> closing = new AtomicReference<>(null);
     private final ConnectionAttemptManager connectionAttemptManager;
-    private final GremlinClusterCollection clusterCollection;
-    private final Function<Collection<String>, Cluster> clusterBuilder;
+    private final ClientClusterCollection clientClusterCollection;
+    private final ClusterFactory clusterFactory;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final EndpointStrategies endpointStrategies;
     private final AcquireConnectionConfig acquireConnectionConfig;
@@ -45,27 +45,20 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
     GremlinClient(Cluster cluster,
                   Settings settings,
                   EndpointClientCollection endpointClientCollection,
-                  GremlinClusterCollection clusterCollection,
-                  Function<Collection<String>, Cluster> clusterBuilder,
+                  ClientClusterCollection clientClusterCollection,
+                  ClusterFactory clusterFactory,
                   EndpointStrategies endpointStrategies,
                   AcquireConnectionConfig acquireConnectionConfig) {
         super(cluster, settings);
 
         this.endpointClientCollection.set(endpointClientCollection);
-        this.clusterCollection = clusterCollection;
-        this.clusterBuilder = clusterBuilder;
+        this.clientClusterCollection = clientClusterCollection;
+        this.clusterFactory = clusterFactory;
         this.endpointStrategies = endpointStrategies;
         this.acquireConnectionConfig = acquireConnectionConfig;
         this.connectionAttemptManager = acquireConnectionConfig.createConnectionAttemptManager(this);
 
-        logger.info("availableEndpointFilter: {}", endpointStrategies.availableEndpointFilter());
-    }
-
-    /**
-     * Refreshes the list of endpoint addresses to which the client connects.
-     */
-    public void refreshEndpoints(String... addresses) {
-        refreshEndpoints(EndpointCollection.fromAddresses(Arrays.asList(addresses)));
+        logger.info("availableEndpointFilter: {}", endpointStrategies.endpointFilter());
     }
 
     /**
@@ -78,57 +71,30 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
             return;
         }
 
-        AvailableEndpointFilter endpointFilter =
-                new EmptyEndpointFilter(endpointStrategies.availableEndpointFilter());
-
-        EndpointCollection acceptedEndpoints = new EndpointCollection();
-        EndpointCollection rejectedEndpoints = new EndpointCollection();
-
-        for (Endpoint endpoint : endpoints) {
-            endpoint = endpointFilter.enrichEndpoint(endpoint);
-            ApprovalResult approvalResult = endpointFilter.approveEndpoint(endpoint);
-            if (approvalResult.isApproved()) {
-                acceptedEndpoints.addOrReplace(endpoint);
-            } else {
-                rejectedEndpoints.addOrReplace(approvalResult.enrich(endpoint));
-            }
-        }
-
-        List<EndpointClient> newEndpointClientList = new ArrayList<>();
+        EndpointFilter endpointFilter =
+                new EmptyEndpointFilter(endpointStrategies.endpointFilter());
 
         EndpointClientCollection currentEndpointClientCollection = endpointClientCollection.get();
-        List<String> addressesToRemove = new ArrayList<>();
 
-        for (EndpointClient endpointClient : currentEndpointClientCollection) {
-            Endpoint endpoint = endpointClient.endpoint();
-            if (acceptedEndpoints.containsAddress(endpoint.getAddress())) {
-                logger.info("Retaining client for {}", endpoint.getAddress());
-                newEndpointClientList.add(endpointClient);
-            } else {
-                addressesToRemove.add(endpoint.getAddress());
-            }
-        }
+        EndpointCollection enrichedEndpoints = endpoints.getEnrichedEndpoints(endpointFilter);
 
-        for (Endpoint endpoint : acceptedEndpoints) {
-            String address = endpoint.getAddress();
-            if (!clusterCollection.containsAddress(address)) {
-                logger.info("Adding client for {}", address);
-                Cluster cluster = clusterBuilder.apply(Collections.singletonList(address));
-                Client client = cluster.connect().init();
-                newEndpointClientList.add(new EndpointClient(endpoint, client));
-                clusterCollection.add(address, cluster);
-            }
-        }
+        EndpointCollection acceptedEndpoints = enrichedEndpoints.getAcceptedEndpoints(endpointFilter);
+        EndpointCollection rejectedEndpoints = enrichedEndpoints.getRejectedEndpoints(endpointFilter);
 
-        endpointClientCollection.set(new EndpointClientCollection(rejectedEndpoints, newEndpointClientList));
+        List<EndpointClient> survivingEndpointClients =
+                currentEndpointClientCollection.getSurvivingEndpointClients(acceptedEndpoints);
 
-        for (String address : addressesToRemove) {
-            logger.info("Removing client for {}", address);
-            Cluster cluster = clusterCollection.remove(address);
-            if (cluster != null) {
-                cluster.close();
-            }
-        }
+        EndpointCollection newEndpoints = acceptedEndpoints.getEndpointsWithNoCluster(clientClusterCollection);
+        Map<Endpoint, Cluster> newEndpointClusters = clientClusterCollection.createClustersForEndpoints(newEndpoints);
+        List<EndpointClient> newEndpointClients = EndpointClient.create(newEndpointClusters);
+
+        EndpointClientCollection newEndpointClientCollection = new EndpointClientCollection(
+                CollectionUtils.join(survivingEndpointClients, newEndpointClients),
+                rejectedEndpoints
+        );
+
+        endpointClientCollection.set(newEndpointClientCollection);
+        clientClusterCollection.removeClustersWithNoMatchingEndpoint(newEndpointClientCollection.endpoints());
     }
 
     @Override
@@ -205,7 +171,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
     @Override
     public Client alias(final Map<String, String> aliases) {
-        return new GremlinAliasClusterClient(this, aliases, settings, clusterCollection);
+        return new GremlinAliasClusterClient(this, aliases, settings, clientClusterCollection);
     }
 
     @Override
@@ -260,21 +226,21 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
                         .collect(Collectors.joining(System.lineSeparator())) +
                 System.lineSeparator() +
                 "Cluster collection: " + System.lineSeparator() +
-                clusterCollection.toString();
+                clientClusterCollection.toString();
     }
 
     public static class GremlinAliasClusterClient extends AliasClusteredClient {
 
-        private final GremlinClusterCollection clusterCollection;
+        private final ClientClusterCollection clientClusterCollection;
 
-        GremlinAliasClusterClient(Client client, Map<String, String> aliases, Settings settings, GremlinClusterCollection clusterCollection) {
+        GremlinAliasClusterClient(Client client, Map<String, String> aliases, Settings settings, ClientClusterCollection clientClusterCollection) {
             super(client, aliases, settings);
-            this.clusterCollection = clusterCollection;
+            this.clientClusterCollection = clientClusterCollection;
         }
 
         @Override
         public Cluster getCluster() {
-            Cluster cluster = clusterCollection.getFirstOrNull();
+            Cluster cluster = clientClusterCollection.getFirstOrNull();
             if (cluster != null) {
                 logger.trace("Returning: Cluster: {}, Hosts: [{}}",
                         cluster,

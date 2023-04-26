@@ -12,11 +12,11 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-public class EmptyEndpointFilter implements AvailableEndpointFilter {
-    private final AvailableEndpointFilter innerFilter;
+public class EmptyEndpointFilter implements EndpointFilter {
+    private final EndpointFilter innerFilter;
 
-    public EmptyEndpointFilter(AvailableEndpointFilter innerFilter) {
-        this.innerFilter = innerFilter != null ? innerFilter : AvailableEndpointFilter.NULL_ENDPOINT_FILTER;
+    public EmptyEndpointFilter(EndpointFilter innerFilter) {
+        this.innerFilter = innerFilter != null ? innerFilter : EndpointFilter.NULL_ENDPOINT_FILTER;
     }
 
     @Override

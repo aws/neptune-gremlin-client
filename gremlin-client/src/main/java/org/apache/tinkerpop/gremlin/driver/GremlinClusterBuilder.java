@@ -71,7 +71,7 @@ public class GremlinClusterBuilder {
     private int eagerRefreshBackoffMillis = 5000;
     private int acquireConnectionBackoffMillis = 5;
     private OnEagerRefresh onEagerRefresh = null;
-    private AvailableEndpointFilter availableEndpointFilter;
+    private EndpointFilter endpointFilter;
     private HandshakeInterceptor interceptor = HandshakeInterceptor.NO_OP;
 
     private GremlinClusterBuilder() {
@@ -113,10 +113,10 @@ public class GremlinClusterBuilder {
     }
 
     /**
-     * Strategy for filtering and enriching available endpoints.
+     * Strategy for filtering and enriching available endpoints before creating clients.
      */
-    public GremlinClusterBuilder availableEndpointFilter(AvailableEndpointFilter availableEndpointFilter) {
-        this.availableEndpointFilter = availableEndpointFilter;
+    public GremlinClusterBuilder endpointFilter(EndpointFilter endpointFilter) {
+        this.endpointFilter = endpointFilter;
         return this;
     }
 
@@ -533,7 +533,7 @@ public class GremlinClusterBuilder {
     }
 
     public GremlinClusterBuilder addContactPoints(final EndpointCollection endpointCollection) {
-        for (Endpoint endpoint : endpointCollection.endpoints())
+        for (Endpoint endpoint : endpointCollection)
             addContactPoint(endpoint);
         return this;
     }
@@ -575,9 +575,9 @@ public class GremlinClusterBuilder {
 
         Collection<Endpoint> filteredEndpoints = new ArrayList<>();
 
-        AvailableEndpointFilter endpointFilter = availableEndpointFilter != null ?
-                availableEndpointFilter :
-                AvailableEndpointFilter.NULL_ENDPOINT_FILTER;
+        EndpointFilter endpointFilter = this.endpointFilter != null ?
+                this.endpointFilter :
+                EndpointFilter.NULL_ENDPOINT_FILTER;
 
         for (Endpoint endpoint : endpoints) {
             if (endpointFilter.approveEndpoint(endpoint).isApproved()) {

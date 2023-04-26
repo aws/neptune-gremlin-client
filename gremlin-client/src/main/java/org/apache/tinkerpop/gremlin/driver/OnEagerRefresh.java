@@ -12,9 +12,6 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import org.apache.tinkerpop.gremlin.driver.EagerRefreshContext;
-import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
-
 public interface OnEagerRefresh {
     EndpointCollection getEndpoints(EagerRefreshContext context);
 }

@@ -12,9 +12,9 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-public interface AvailableEndpointFilter {
+public interface EndpointFilter {
 
-    AvailableEndpointFilter NULL_ENDPOINT_FILTER = new AvailableEndpointFilter() {
+    EndpointFilter NULL_ENDPOINT_FILTER = new EndpointFilter() {
     };
 
     default ApprovalResult approveEndpoint(Endpoint endpoint) {

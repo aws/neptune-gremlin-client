@@ -35,16 +35,28 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
     }
 
     EndpointClientCollection(EndpointCollection rejectedEndpoints) {
-        this(rejectedEndpoints, new ArrayList<>());
+        this(new ArrayList<>(), rejectedEndpoints);
     }
 
     EndpointClientCollection(List<EndpointClient> endpointClients) {
-        this(new EndpointCollection(), endpointClients);
+        this(endpointClients, new EndpointCollection());
     }
 
-    EndpointClientCollection(EndpointCollection rejectedEndpoints, List<EndpointClient> endpointClients) {
+    EndpointClientCollection(List<EndpointClient> endpointClients, EndpointCollection rejectedEndpoints) {
         this.rejectedEndpoints = rejectedEndpoints;
         this.endpointClients = endpointClients;
+    }
+
+    public List<EndpointClient> getSurvivingEndpointClients(EndpointCollection acceptedEndpoints) {
+        List<EndpointClient> results = new ArrayList<>();
+        for (EndpointClient endpointClient : endpointClients) {
+            Endpoint endpoint = endpointClient.endpoint();
+            if (acceptedEndpoints.containsEndpoint(endpoint)) {
+                logger.info("Retaining client for {}", endpoint.getAddress());
+                results.add(endpointClient);
+            }
+        }
+        return results;
     }
 
     public Connection chooseConnection(RequestMessage msg, ChooseEndpointStrategy strategy) throws TimeoutException {
@@ -93,12 +105,17 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
         return endpointClients.stream();
     }
 
+    public EndpointCollection endpoints(){
+        List<Endpoint> endpoints = endpointClients.stream().map(e -> e.endpoint()).collect(Collectors.toList());
+        return new EndpointCollection(endpoints);
+    }
+
     public boolean hasRejectedEndpoints() {
         return !rejectedEndpoints.isEmpty();
     }
 
     public Collection<String> rejectionReasons() {
-        return rejectedEndpoints.endpoints().stream()
+        return rejectedEndpoints.stream()
                 .map(e -> e.getAnnotations().getOrDefault(REJECTED_REASON_ANNOTATION, "unknown"))
                 .collect(Collectors.toSet());
     }
