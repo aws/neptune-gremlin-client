@@ -56,7 +56,7 @@ class ClientClusterCollection {
     public void removeClustersWithNoMatchingEndpoint(EndpointCollection endpoints){
         List<String> removalList = new ArrayList<>();
         for (String address : clusters.keySet()) {
-            if (!endpoints.containsEndpoint(new DatabaseEndpoint().withEndpoint(address))){
+            if (!endpoints.containsEndpoint(new DatabaseEndpoint().withAddress(address))){
                 removalList.add(address);
             }
         }

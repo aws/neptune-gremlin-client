@@ -37,12 +37,12 @@ public class NeptuneClusterMetadata {
     }
 
     public NeptuneClusterMetadata withClusterEndpoint(String clusterEndpoint) {
-        setClusterEndpoint(new DatabaseEndpoint().withEndpoint(clusterEndpoint));
+        setClusterEndpoint(new DatabaseEndpoint().withAddress(clusterEndpoint));
         return this;
     }
 
     public NeptuneClusterMetadata withReaderEndpoint(String readerEndpoint) {
-        setReaderEndpoint(new DatabaseEndpoint().withEndpoint(readerEndpoint));
+        setReaderEndpoint(new DatabaseEndpoint().withAddress(readerEndpoint));
         return this;
     }
 

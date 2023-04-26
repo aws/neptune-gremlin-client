@@ -50,7 +50,7 @@ public class GremlinCluster implements AutoCloseable {
 
         return connectToEndpoints(
                 addresses.stream()
-                        .map(a -> new DatabaseEndpoint().withEndpoint(a))
+                        .map(a -> new DatabaseEndpoint().withAddress(a))
                         .collect(Collectors.toList()),
                 settings);
     }

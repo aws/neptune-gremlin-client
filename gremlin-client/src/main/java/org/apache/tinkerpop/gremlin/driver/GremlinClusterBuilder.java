@@ -498,7 +498,7 @@ public class GremlinClusterBuilder {
     public GremlinClusterBuilder addContactPoint(final String address) {
         try {
             InetAddress.getByName(address);
-            this.endpoints.add(new DatabaseEndpoint().withEndpoint(address));
+            this.endpoints.add(new DatabaseEndpoint().withAddress(address));
             return this;
         } catch (UnknownHostException e) {
             throw new IllegalArgumentException(e.getMessage());

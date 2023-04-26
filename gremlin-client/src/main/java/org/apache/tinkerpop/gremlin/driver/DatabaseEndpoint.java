@@ -31,7 +31,7 @@ public class DatabaseEndpoint implements Endpoint {
         this.annotations.putAll(annotations);
     }
 
-    public DatabaseEndpoint withEndpoint(String endpoint) {
+    public DatabaseEndpoint withAddress(String endpoint) {
         setAddress(endpoint);
         return this;
     }

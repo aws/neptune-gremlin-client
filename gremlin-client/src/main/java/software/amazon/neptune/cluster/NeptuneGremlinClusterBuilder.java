@@ -277,7 +277,7 @@ public class NeptuneGremlinClusterBuilder {
     }
 
     public NeptuneGremlinClusterBuilder addContactPoint(final String address) {
-        this.endpoints.add(new DatabaseEndpoint().withEndpoint(address));
+        this.endpoints.add(new DatabaseEndpoint().withAddress(address));
         return this;
     }
 
