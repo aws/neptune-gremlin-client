@@ -72,10 +72,10 @@ class LBAwareHandshakeInterceptor implements HandshakeInterceptor {
             logger.debug("Using service region supplied in config");
             return iamAuthConfig.serviceRegion();
         } else if (StringUtils.isNotEmpty(System.getenv("SERVICE_REGION"))) {
-            logger.debug("Using using SERVICE_REGION environment variable as service region");
+            logger.debug("Using SERVICE_REGION environment variable as service region");
             return StringUtils.trim(System.getenv("SERVICE_REGION"));
         } else if (StringUtils.isNotEmpty(System.getProperty("SERVICE_REGION"))) {
-            logger.debug("Using using SERVICE_REGION system property as service region");
+            logger.debug("Using SERVICE_REGION system property as service region");
             return StringUtils.trim(System.getProperty("SERVICE_REGION"));
         } else {
             String currentRegionName = RegionUtils.getCurrentRegionName();

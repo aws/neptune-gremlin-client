@@ -12,7 +12,8 @@
 
     <name>gremlin-client</name>
     <description>
-        A Java Gremlin client for Amazon Neptune that allows you to change the endpoints used by the client as it is running.
+        A Java Gremlin client for Amazon Neptune that allows you to change the endpoints used by the client as it is
+        running.
     </description>
     <url>https://github.com/awslabs/amazon-neptune-tools.git</url>
 
@@ -124,49 +125,93 @@
 
     </dependencies>
 
+    <build>
+        <plugins>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!-- Package the source jar. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.2.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Package the javadoc jar. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <name>Gremlin Client for Amazon Neptune</name>
+                    <encoding>UTF-8</encoding>
+                    <bottom>
+                        <![CDATA[<center>Copyright &#169; 2021 Amazon.com. All Rights Reserved.</center>]]>
+                    </bottom>
+                    <additionalOptions>-Xdoclint:none</additionalOptions>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>io.github.git-commit-id</groupId>
+                <artifactId>git-commit-id-maven-plugin</artifactId>
+                <version>5.0.0</version>
+                <executions>
+                    <execution>
+                        <id>get-the-git-infos</id>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <skipPoms>false</skipPoms>
+                    <generateGitPropertiesFile>true</generateGitPropertiesFile>
+                    <injectAllReactorProjects>false</injectAllReactorProjects>
+                    <includeOnlyProperties>
+                        <includeOnlyProperty>git.commit.id</includeOnlyProperty>
+                        <includeOnlyProperty>git.commit.time</includeOnlyProperty>
+                        <includeOnlyProperty>git.build.time</includeOnlyProperty>
+                        <includeOnlyProperty>git.build.version</includeOnlyProperty>
+                    </includeOnlyProperties>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+
     <profiles>
         <profile>
             <id>release</id>
             <build>
                 <plugins>
-
-                    <!-- Package the source jar. -->
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-source-plugin</artifactId>
-                        <version>3.2.1</version>
-                        <executions>
-                            <execution>
-                                <id>attach-sources</id>
-                                <goals>
-                                    <goal>jar-no-fork</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-
-                    <!-- Package the javadoc jar. -->
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>3.2.0</version>
-                        <configuration>
-                            <name>Gremlin Client for Amazon Neptune</name>
-                            <encoding>UTF-8</encoding>
-                            <bottom>
-                                <![CDATA[<center>Copyright &#169; 2021 Amazon.com. All Rights Reserved.</center>]]>
-                            </bottom>
-                            <additionalOptions>-Xdoclint:none</additionalOptions>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>attach-javadocs</id>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
 
                     <!-- Sign the artifact -->
                     <plugin>
@@ -183,10 +228,10 @@
                                 <configuration>
                                     <keyname>${gpg.keyname}</keyname>
                                     <passphrase>${gpg.passphrase}</passphrase>
-<!--                                    <gpgArguments>-->
-<!--                                        <arg>&#45;&#45;pinentry-mode</arg>-->
-<!--                                        <arg>loopback</arg>-->
-<!--                                    </gpgArguments>-->
+                                    <!--                                    <gpgArguments>-->
+                                    <!--                                        <arg>&#45;&#45;pinentry-mode</arg>-->
+                                    <!--                                        <arg>loopback</arg>-->
+                                    <!--                                    </gpgArguments>-->
                                 </configuration>
                             </execution>
                         </executions>
@@ -202,35 +247,6 @@
                             <serverId>ossrh</serverId>
                             <nexusUrl>https://aws.oss.sonatype.org/</nexusUrl>
                             <autoReleaseAfterClose>true</autoReleaseAfterClose>
-                        </configuration>
-                    </plugin>
-
-                    <plugin>
-                        <groupId>io.github.git-commit-id</groupId>
-                        <artifactId>git-commit-id-maven-plugin</artifactId>
-                        <version>5.0.0</version>
-                        <executions>
-                            <execution>
-                                <id>get-the-git-infos</id>
-                                <goals>
-                                    <goal>revision</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>validate-the-git-infos</id>
-                                <goals>
-                                    <goal>validateRevision</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                        <configuration>
-                            <generateGitPropertiesFile>true</generateGitPropertiesFile>
-                            <includeOnlyProperties>
-                                <includeOnlyProperty>git.commit.id</includeOnlyProperty>
-                                <includeOnlyProperty>git.commit.time</includeOnlyProperty>
-                                <includeOnlyProperty>git.build.time</includeOnlyProperty>
-                                <includeOnlyProperty>git.build.version</includeOnlyProperty>
-                            </includeOnlyProperties>
                         </configuration>
                     </plugin>
 

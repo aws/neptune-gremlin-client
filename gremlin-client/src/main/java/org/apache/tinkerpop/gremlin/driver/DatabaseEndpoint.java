@@ -26,6 +26,11 @@ public class DatabaseEndpoint implements Endpoint {
         this.address = address;
     }
 
+    @Deprecated
+    public void setEndpoint(String endpoint) {
+        this.address = endpoint;
+    }
+
     public void setAnnotations(Map<String, String> annotations) {
         this.annotations.clear();
         this.annotations.putAll(annotations);

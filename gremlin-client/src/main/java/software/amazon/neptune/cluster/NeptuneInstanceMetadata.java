@@ -13,11 +13,18 @@ permissions and limitations under the License.
 package software.amazon.neptune.cluster;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.tinkerpop.gremlin.driver.Endpoint;
 
+import java.io.IOException;
 import java.util.*;
 
 public class NeptuneInstanceMetadata implements Endpoint {
+
+    public static NeptuneInstanceMetadata fromByteArray(byte[] bytes) throws IOException {
+        return new ObjectMapper().readerFor(NeptuneInstanceMetadata.class).readValue(bytes);
+    }
 
     private static final Collection<String> AVAILABLE_STATES = Arrays.asList("available", "backing-up", "modifying", "upgrading");
     private String instanceId;
@@ -44,6 +51,11 @@ public class NeptuneInstanceMetadata implements Endpoint {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    @Deprecated
+    public void setEndpoint(String endpoint) {
+        this.address = endpoint;
     }
 
     public void setStatus(String status) {
@@ -83,8 +95,8 @@ public class NeptuneInstanceMetadata implements Endpoint {
         return this;
     }
 
-    public NeptuneInstanceMetadata withEndpoint(String endpoint) {
-        setAddress(endpoint);
+    public NeptuneInstanceMetadata withAddress(String address) {
+        setAddress(address);
         return this;
     }
 
@@ -196,5 +208,9 @@ public class NeptuneInstanceMetadata implements Endpoint {
                 ", annotations=" + annotations +
                 ", tags=" + tags +
                 '}';
+    }
+
+    public String toJsonString() throws JsonProcessingException {
+        return new ObjectMapper().writerFor(this.getClass()).writeValueAsString(this);
     }
 }

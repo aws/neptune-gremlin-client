@@ -17,14 +17,14 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 package software.amazon.neptune.cluster;
 
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.LongUnaryOperator;
+import java.util.Optional;
+
+import static org.junit.Assert.assertEquals;
 
 public class NeptuneClusterMetadataTest {
 
@@ -38,7 +38,7 @@ public class NeptuneClusterMetadataTest {
                 .withInstanceId("instance-1")
                 .withInstanceType("r5.large")
                 .withAvailabilityZone("eu-west-1b")
-                .withEndpoint("endpoint-1")
+                .withAddress("endpoint-1")
                 .withStatus("available")
                 .withRole("writer")
                 .withTags(tags)
@@ -48,7 +48,7 @@ public class NeptuneClusterMetadataTest {
                 .withInstanceId("instance-2")
                 .withInstanceType("r5.medium")
                 .withAvailabilityZone("eu-west-1a")
-                .withEndpoint("endpoint-2")
+                .withAddress("endpoint-2")
                 .withStatus("rebooting")
                 .withRole("reader")
                 .withTags(tags)
@@ -63,6 +63,53 @@ public class NeptuneClusterMetadataTest {
         NeptuneClusterMetadata cluster = NeptuneClusterMetadata.fromByteArray(json1.getBytes());
         String json2 = cluster.toJsonString();
 
-        Assert.assertEquals(json2, json1);
+        assertEquals(json2, json1);
+    }
+
+    @Test
+    public void shouldAcceptEndpointFieldForAddressValue() throws IOException {
+        String json = "{\n" +
+                "  \"instances\": [\n" +
+                "    {\n" +
+                "      \"instanceId\": \"neptune-db-1-123456b0\",\n" +
+                "      \"role\": \"writer\",\n" +
+                "      \"endpoint\": \"neptune-db-1-123456b0.abcdefghijklm.eu-west-2.neptune.amazonaws.com\",\n" +
+                "      \"status\": \"available\",\n" +
+                "      \"availabilityZone\": \"eu-west-2a\",\n" +
+                "      \"instanceType\": \"db.r5.large\",\n" +
+                "      \"annotations\": {},\n" +
+                "      \"tags\": {\n" +
+                "        \"Name\": \"neptune-db-1-123456b0\",\n" +
+                "        \"Stack\": \"eu-west-2-social-NeptuneBaseStack-ABCDEFGHIJKL\",\n" +
+                "        \"StackId\": \"arn:aws:cloudformation:eu-west-2:123456789123:stack/social-NeptuneBaseStack-ABCDEFGHIJKL/828f4fe0-e4e4-11ed-9c0c-02f21623886a\"\n" +
+                "      }\n" +
+                "    },\n" +
+                "    {\n" +
+                "      \"instanceId\": \"neptune-db-2-123456b0\",\n" +
+                "      \"role\": \"reader\",\n" +
+                "      \"endpoint\": \"neptune-db-2-123456b0.abcdefghijklm.eu-west-2.neptune.amazonaws.com\",\n" +
+                "      \"status\": \"available\",\n" +
+                "      \"availabilityZone\": \"eu-west-2c\",\n" +
+                "      \"instanceType\": \"db.r5.large\",\n" +
+                "      \"annotations\": {},\n" +
+                "      \"tags\": {\n" +
+                "        \"Name\": \"neptune-db-2-123456b0\",\n" +
+                "        \"Stack\": \"eu-west-2-social-NeptuneBaseStack-ABCDEFGHIJKL\",\n" +
+                "        \"StackId\": \"arn:aws:cloudformation:eu-west-2:123456789123:stack/social-NeptuneBaseStack-ABCDEFGHIJKL/828f4fe0-e4e4-11ed-9c0c-02f21623886a\"\n" +
+                "      }\n" +
+                "    }\n" +
+                "  ],\n" +
+                "  \"clusterEndpoint\": {\n" +
+                "    \"endpoint\": \"neptune-cluster-123456b0.cluster-abcdefghijklm.eu-west-2.neptune.amazonaws.com\",\n" +
+                "    \"annotations\": {}\n" +
+                "  },\n" +
+                "  \"readerEndpoint\": {\n" +
+                "    \"endpoint\": \"neptune-cluster-123456b0.cluster-ro-abcdefghijklm.eu-west-2.neptune.amazonaws.com\",\n" +
+                "    \"annotations\": {}\n" +
+                "  }\n" +
+                "}\n";
+        NeptuneClusterMetadata cluster = NeptuneClusterMetadata.fromByteArray(json.getBytes());
+        String address = cluster.getInstances().stream().filter(i -> i.isPrimary()).map(i -> i.getAddress()).findFirst().get();
+        assertEquals("neptune-db-1-123456b0.abcdefghijklm.eu-west-2.neptune.amazonaws.com", address);
     }
 }

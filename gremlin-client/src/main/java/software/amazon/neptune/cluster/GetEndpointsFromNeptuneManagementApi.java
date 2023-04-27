@@ -151,7 +151,7 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
                                         new NeptuneInstanceMetadata()
                                                 .withInstanceId(c.getDBInstanceIdentifier())
                                                 .withRole(role)
-                                                .withEndpoint(address)
+                                                .withAddress(address)
                                                 .withStatus(c.getDBInstanceStatus())
                                                 .withAvailabilityZone(c.getAvailabilityZone())
                                                 .withInstanceType(c.getDBInstanceClass())
