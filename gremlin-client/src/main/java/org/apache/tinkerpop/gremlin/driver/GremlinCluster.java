@@ -14,6 +14,7 @@ package org.apache.tinkerpop.gremlin.driver;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.utils.GitProperties;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -37,6 +38,7 @@ public class GremlinCluster implements AutoCloseable {
                           ClusterFactory clusterFactory,
                           EndpointStrategies endpointStrategies,
                           AcquireConnectionConfig acquireConnectionConfig) {
+        logger.info("gremlin-client: {}", GitProperties.fromResource());
         logger.info("Created GremlinCluster, defaultEndpoints: {}", defaultEndpoints.stream()
                 .map(Endpoint::getAddress)
                 .collect(Collectors.toList()) );
