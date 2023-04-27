@@ -11,6 +11,5 @@ permissions and limitations under the License.
 */
 
 package org.apache.tinkerpop.gremlin.driver;
-
 public class EagerRefreshContext {
 }
