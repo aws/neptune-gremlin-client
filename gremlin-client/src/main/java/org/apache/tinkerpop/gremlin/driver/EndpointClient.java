@@ -16,15 +16,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 class EndpointClient {
 
     public static List<EndpointClient> create(Map<Endpoint, Cluster> endpointClusters){
+        return create(endpointClusters, cluster -> cluster.connect().init());
+    }
+
+    static List<EndpointClient> create(Map<Endpoint, Cluster> endpointClusters, Function<Cluster, Client> clientFactory){
         List<EndpointClient> results = new ArrayList<>();
         for (Map.Entry<Endpoint, Cluster> entry : endpointClusters.entrySet()) {
             Cluster cluster = entry.getValue();
             Endpoint endpoint = entry.getKey();
-            Client client = cluster.connect().init();
+            Client client = clientFactory.apply(cluster);
             results.add(new EndpointClient(endpoint, client));
         }
         return results;

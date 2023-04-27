@@ -19,6 +19,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 class ClientClusterCollection {
@@ -54,6 +55,15 @@ class ClientClusterCollection {
     }
 
     public void removeClustersWithNoMatchingEndpoint(EndpointCollection endpoints){
+        removeClustersWithNoMatchingEndpoint(endpoints, cluster -> {
+            if (cluster != null){
+                cluster.close();
+            }
+            return null;
+        });
+    }
+
+    void removeClustersWithNoMatchingEndpoint(EndpointCollection endpoints, Function<Cluster, Void> clusterCloseMethod){
         List<String> removalList = new ArrayList<>();
         for (String address : clusters.keySet()) {
             if (!endpoints.containsEndpoint(new DatabaseEndpoint().withAddress(address))){
@@ -63,9 +73,7 @@ class ClientClusterCollection {
         for (String address : removalList) {
             logger.info("Removing client for {}", address);
             Cluster cluster = clusters.remove(address);
-            if (cluster != null){
-                cluster.close();
-            }
+            clusterCloseMethod.apply(cluster);
         }
     }
 
