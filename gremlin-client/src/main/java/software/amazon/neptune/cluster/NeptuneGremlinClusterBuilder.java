@@ -393,9 +393,9 @@ public class NeptuneGremlinClusterBuilder {
                 throw new EndpointsUnavailableException(rejectedReasons);
             }
             if (isDirectConnection()) {
-                throw new IllegalArgumentException("The list of endpoint addresses is empty. You must supply one or more endpoints.");
+                throw new IllegalStateException("The list of endpoint addresses is empty. You must supply one or more endpoints.");
             } else if (enableIamAuth) {
-                throw new IllegalArgumentException("The list of endpoint addresses is empty. You must supply one or more endpoints to sign the Host header.");
+                throw new IllegalStateException("The list of endpoint addresses is empty. You must supply one or more endpoints to sign the Host header.");
             }
         }
 
