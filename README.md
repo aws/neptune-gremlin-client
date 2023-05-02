@@ -111,11 +111,11 @@ Your application can then use an `EndpointsSelector` to select an appropriate se
 
 The following diagram shows how an application can use a `GremlinClient`, `ClusterEndpointsRefreshAgent`, and AWS Lambda proxy function to access a Neptune database:
 
-![Accessing Neptune using AWS Lambda proxy](lambda-proxy-architecture.png)
+![Accessing Neptune using AWS Lambda proxy](./images/lambda-proxy-architecture.png)
 
 The following diagram shows how an application can use a `GremlinClient`, and a `ClusterEndpointsRefreshAgent` that gets cluster topology information directly from the Neptune Management API, to access a Neptune database:
 
-![Accessing Neptune using Neptune Management API](management-api-architecture.png)
+![Accessing Neptune using Neptune Management API](./images/management-api-architecture.png)
 
 ### Distributing requests across an Amazon Neptune cluster
 
