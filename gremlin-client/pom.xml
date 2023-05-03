@@ -15,7 +15,7 @@
         A Java Gremlin client for Amazon Neptune that allows you to change the endpoints used by the client as it is
         running.
     </description>
-    <url>https://github.com/awslabs/amazon-neptune-tools.git</url>
+    <url>https://github.com/aws/neptune-gremlin-client.git</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

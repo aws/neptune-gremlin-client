@@ -13,7 +13,7 @@
     <description>
         An AWS Lambda function that retrieves details of Amazon Neptune endpoints.
     </description>
-    <url>https://github.com/awslabs/amazon-neptune-tools.git</url>
+    <url>https://github.com/aws/neptune-gremlin-client.git</url>
 
     <scm>
         <connection>scm:git:git@github.com:aws/neptune-gremlin-client.git</connection>
