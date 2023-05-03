@@ -165,7 +165,7 @@ client.refreshEndpoints("new-replica-endpoint-1", "new-replica-endpoint-2", "new
  
 You can also use a `ClusterEndpointsRefreshAgent` to update the endpoints automatically on a periodic basis.
 
-Because the cluster topology can change at any moment as a result of both planned and unplanned events, you should [wrap all queries with an exception handler](##backoff-and-retry). Should a query fail because the underlying client connection has been closed, you can attempt a retry.
+Because the cluster topology can change at any moment as a result of both planned and unplanned events, you should [wrap all queries with an exception handler](#backoff-and-retry). Should a query fail because the underlying client connection has been closed, you can attempt a retry.
 
 ### Configuration
 
@@ -213,7 +213,7 @@ When you use a `ClusterEndpointsRefreshAgent` to query an AWS Lambda proxy funct
 
 #### Installing the neptune-endpoints-info AWS Lambda function
 
-  1. Build the AWS Lambda proxy from [source](./neptune-endpoints-info-lambda) and put it an Amazon S3 bucket. 
+  1. Build the AWS Lambda proxy from [source](./neptune-endpoints-info-lambda), or download the [latest release](https://github.com/aws/neptune-gremlin-client/releases/latest), and put it an Amazon S3 bucket. 
   2. Install the Lambda proxy in your account using [this CloudFormation template](./cloudformation-templates/neptune-endpoints-info-lambda.json). The template includes parameters for the current Neptune cluster ID, and the S3 source for the Lambda proxy jar (from step 1).
   3. Ensure all parts of your application are using the latest Neptune Gremlin Client.
   4. The Neptune Gremlin Client should be configured to fetch the cluster topology information from the Lambda proxy using the `ClusterEndpointsRefreshAgent.lambdaProxy()` method, as per the [example above](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology).

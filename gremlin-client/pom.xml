@@ -28,11 +28,11 @@
         <jackson.dataformat.version>2.13.2</jackson.dataformat.version>
         <sigv4.version>2.4.0</sigv4.version>
     </properties>
-
+    
     <scm>
-        <connection>scm:git:git@github.com:awslabs/amazon-neptune-tools.git</connection>
-        <developerConnection>scm:git:git@github.com:awslabs/amazon-neptune-tools.git</developerConnection>
-        <url>git@github.com:awslabs/amazon-neptune-tools.git</url>
+        <connection>scm:git:git@github.com:aws/neptune-gremlin-client.git</connection>
+        <developerConnection>scm:git:git@github.com:aws/neptune-gremlin-client.git</developerConnection>
+        <url>git@github.com:aws/neptune-gremlin-client.git</url>
     </scm>
 
     <licenses>
