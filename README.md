@@ -228,7 +228,7 @@ The AWS Lambda proxy has the following environment variables:
   
 #### Suspending endpoints using the AWS Lambda proxy
 
-The Lambda proxy has a `suspended` environment variable that accepts the following values: `none`, `all`, `writer`, `reader`. You can use this environment variable to _suspend_ specific types of endpoint. Suspended endpoinst will not be chosen by the client when it applies a selector to the cluster topology.
+The Lambda proxy has a `suspended` environment variable that accepts the following values: `none`, `all`, `writer`, `reader`. You can use this environment variable to _suspend_ specific types of endpoint. Suspended endpoints will not be chosen by the client when it applies a selector to the cluster topology.
 
 To suspend a particular endpoint type, change the variable value, save the change, and once it has propagated (this may take up to a minute), all clients that use the Lambda proxy will see the specified endpoints as being suspended. Setting the value to `reader`, for example, will ensure that all instances currently in a reader role will be seen as suspended.
 
