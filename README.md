@@ -549,9 +549,8 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
         .enableIamAuth(true)
         .serviceRegion("eu-west-1")
         .addContactPoint("my-db.cluster-cktfjywp6uxn.eu-west-1.neptune.amazonaws.com") // cluster endpoint
-        .proxyAddress("https://my-proxy")
+        .proxyAddress("my-proxy")
         .proxyPort(80)
-        .serviceRegion("eu-west-1")
         .create();
 ```
 
