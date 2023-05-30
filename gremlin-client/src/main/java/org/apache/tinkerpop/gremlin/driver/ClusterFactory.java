@@ -12,8 +12,6 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import java.util.Collection;
-
 public interface ClusterFactory {
-    Cluster createCluster(Collection<String> addresses);
+    Cluster createCluster(EndpointCollection endpoints);
 }

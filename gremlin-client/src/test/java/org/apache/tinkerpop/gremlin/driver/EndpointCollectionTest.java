@@ -3,7 +3,6 @@ package org.apache.tinkerpop.gremlin.driver;
 import org.junit.Test;
 
 import java.util.Arrays;
-import java.util.Collection;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
@@ -91,7 +90,7 @@ public class EndpointCollectionTest {
 
         Cluster cluster = Cluster.build().create();
 
-        ClusterFactory clusterFactory = addresses -> cluster;
+        ClusterFactory clusterFactory = e -> cluster;
 
         ClientClusterCollection clientClusterCollection = new ClientClusterCollection(clusterFactory, null);
         clientClusterCollection.createClusterForEndpoint(endpoint1);

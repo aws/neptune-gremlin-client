@@ -74,8 +74,26 @@ public class GremlinClusterBuilder {
     private EndpointFilter endpointFilter;
     private HandshakeInterceptor interceptor = HandshakeInterceptor.NO_OP;
 
+    private TopologyAwareBuilderConfigurator configurator = new TopologyAwareBuilderConfigurator() {
+        @Override
+        public void apply(Cluster.Builder builder, EndpointCollection endpoints) {
+            builder.handshakeInterceptor(interceptor);
+            if (endpoints != null && !endpoints.isEmpty()) {
+                for (Endpoint endpoint : endpoints) {
+                    builder.addContactPoint(endpoint.getAddress());
+                }
+            }
+        }
+    };
+
     private GremlinClusterBuilder() {
     }
+
+    public GremlinClusterBuilder topologyAwareBuilderConfigurator(TopologyAwareBuilderConfigurator configurator){
+        this.configurator = configurator;
+        return this;
+    }
+
 
     /**
      * Number of millis to wait between each attempt to acquire a connection.
@@ -596,7 +614,7 @@ public class GremlinClusterBuilder {
                 eagerRefreshBackoffMillis,
                 acquireConnectionBackoffMillis);
 
-        return new GremlinCluster(filteredEndpoints, addressList -> {
+        return new GremlinCluster(filteredEndpoints, endpoints -> {
             Cluster.Builder builder = Cluster.build()
                     .reconnectInterval(reconnectInterval)
                     .maxWaitForConnection(maxWaitForConnection)
@@ -628,13 +646,10 @@ public class GremlinClusterBuilder {
                     .serializer(serializer)
                     .path(path)
                     .workerPoolSize(workerPoolSize)
-                    .nioPoolSize(nioPoolSize)
-                    .handshakeInterceptor(interceptor);
-            if (addressList != null && !addressList.isEmpty()) {
-                for (String address : addressList) {
-                    builder = builder.addContactPoint(address);
-                }
-            }
+                    .nioPoolSize(nioPoolSize);
+
+            configurator.apply(builder, endpoints);
+
             return builder.create();
         }, endpointStrategies, acquireConnectionConfig);
     }

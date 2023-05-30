@@ -24,7 +24,6 @@ import org.apache.tinkerpop.gremlin.driver.ser.Serializers;
 
 import java.util.*;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 public class NeptuneGremlinClusterBuilder {
 
@@ -399,42 +398,24 @@ public class NeptuneGremlinClusterBuilder {
             }
         }
 
-        if (isDirectConnection()) {
-            innerBuilder.port(port);
-            for (Endpoint endpoint : filteredEndpoints) {
-                innerBuilder.addContactPoint(endpoint);
-            }
-        } else {
-            innerBuilder.port(proxyPort);
-            if (proxyAddress != null) {
-                innerBuilder.addContactPoint(proxyAddress);
-            }
+        for (Endpoint endpoint : filteredEndpoints) {
+            innerBuilder.addContactPoint(endpoint);
         }
 
-        if (interceptor != null) {
-            innerBuilder.handshakeInterceptor(interceptor);
-        } else if (enableIamAuth) {
+        TopologyAwareBuilderConfigurator configurator = new HandshakeInterceptorConfigurator(
+                isDirectConnection(),
+                interceptor,
+                enableIamAuth,
+                port,
+                proxyPort,
+                proxyAddress,
+                serviceRegion,
+                iamProfile,
+                credentials,
+                removeHostHeader
+        );
 
-            IamAuthConfig.IamAuthConfigBuilder iamAuthConfigBuilder =
-                    IamAuthConfig.builder()
-                            .addNeptuneEndpoints(filteredEndpoints.stream().map(Endpoint::getAddress).collect(Collectors.toList()))
-                            .setNeptunePort(port)
-                            .setServiceRegion(serviceRegion)
-                            .setIamProfile(iamProfile)
-                            .setCredentials(credentials);
-
-            if (!isDirectConnection()) {
-                iamAuthConfigBuilder.connectViaLoadBalancer();
-            }
-
-            if (removeHostHeader) {
-                iamAuthConfigBuilder.removeHostHeaderAfterSigning();
-            }
-
-            IamAuthConfig iamAuthConfig = iamAuthConfigBuilder.build();
-
-            innerBuilder.handshakeInterceptor(new LBAwareHandshakeInterceptor(iamAuthConfig));
-        }
+        innerBuilder.topologyAwareBuilderConfigurator(configurator);
 
         return innerBuilder.create();
     }

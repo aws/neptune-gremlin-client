@@ -36,13 +36,13 @@ class ClientClusterCollection {
         this.parentCluster = parentCluster;
     }
 
-    public Cluster createClusterForEndpoint(Endpoint endpoint){
-        Cluster cluster = clusterFactory.createCluster(Collections.singletonList(endpoint.getAddress()));
+    public Cluster createClusterForEndpoint(Endpoint endpoint) {
+        Cluster cluster = clusterFactory.createCluster(new EndpointCollection(Collections.singletonList(endpoint)));
         clusters.put(endpoint.getAddress(), cluster);
         return cluster;
     }
 
-    public Map<Endpoint, Cluster> createClustersForEndpoints(EndpointCollection endpoints){
+    public Map<Endpoint, Cluster> createClustersForEndpoints(EndpointCollection endpoints) {
         Map<Endpoint, Cluster> results = new HashMap<>();
         for (Endpoint endpoint : endpoints) {
             results.put(endpoint, createClusterForEndpoint(endpoint));
@@ -54,19 +54,19 @@ class ClientClusterCollection {
         return clusters.containsKey(endpoint.getAddress());
     }
 
-    public void removeClustersWithNoMatchingEndpoint(EndpointCollection endpoints){
+    public void removeClustersWithNoMatchingEndpoint(EndpointCollection endpoints) {
         removeClustersWithNoMatchingEndpoint(endpoints, cluster -> {
-            if (cluster != null){
+            if (cluster != null) {
                 cluster.close();
             }
             return null;
         });
     }
 
-    void removeClustersWithNoMatchingEndpoint(EndpointCollection endpoints, Function<Cluster, Void> clusterCloseMethod){
+    void removeClustersWithNoMatchingEndpoint(EndpointCollection endpoints, Function<Cluster, Void> clusterCloseMethod) {
         List<String> removalList = new ArrayList<>();
         for (String address : clusters.keySet()) {
-            if (!endpoints.containsEndpoint(new DatabaseEndpoint().withAddress(address))){
+            if (!endpoints.containsEndpoint(new DatabaseEndpoint().withAddress(address))) {
                 removalList.add(address);
             }
         }
@@ -98,7 +98,7 @@ class ClientClusterCollection {
         return closing.get();
     }
 
-    public Cluster getFirstOrNull(){
+    public Cluster getFirstOrNull() {
         Optional<Map.Entry<String, Cluster>> first = clusters.entrySet().stream().findFirst();
         return first.map(Map.Entry::getValue).orElse(null);
     }

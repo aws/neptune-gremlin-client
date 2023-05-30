@@ -14,7 +14,7 @@ public class ClientClusterCollectionTest {
     @Test
     public void shouldCreateClustersForEndpoints() {
         Cluster cluster = Cluster.build().create();
-        ClusterFactory clusterFactory = addresses -> cluster;
+        ClusterFactory clusterFactory = endpoints -> cluster;
 
         Endpoint endpoint1 = new DatabaseEndpoint().withAddress("address1");
         Endpoint endpoint2 = new DatabaseEndpoint().withAddress("address2");
@@ -39,7 +39,7 @@ public class ClientClusterCollectionTest {
     public void shouldRemoveClustersWithNoMatchingEndpoint() {
         Cluster cluster = Cluster.build().create();
 
-        ClusterFactory clusterFactory = addresses -> cluster;
+        ClusterFactory clusterFactory = endpoints -> cluster;
         Function<Cluster, Void> clusterCloseMethod = mock(Function.class);
 
         Endpoint endpoint1 = new DatabaseEndpoint().withAddress("address1");

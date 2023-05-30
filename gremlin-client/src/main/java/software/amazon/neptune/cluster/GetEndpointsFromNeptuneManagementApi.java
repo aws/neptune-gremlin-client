@@ -33,7 +33,6 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
     private static final Logger logger = LoggerFactory.getLogger(GetEndpointsFromNeptuneManagementApi.class);
 
     private final ClusterEndpointsFetchStrategy innerStrategy;
-    private static final Map<String, Map<String, String>> instanceTags = new HashMap<>();
     private final String clusterId;
     private final String region;
     private final String iamProfile;
@@ -206,9 +205,6 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
     }
 
     private Map<String, String> getTags(String dbInstanceArn, AmazonNeptune neptune) {
-        if (instanceTags.containsKey(dbInstanceArn)) {
-            return instanceTags.get(dbInstanceArn);
-        }
 
         List<Tag> tagList = neptune.listTagsForResource(
                 new ListTagsForResourceRequest()
@@ -216,8 +212,6 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
 
         Map<String, String> tags = new HashMap<>();
         tagList.forEach(t -> tags.put(t.getKey(), t.getValue()));
-
-        instanceTags.put(dbInstanceArn, tags);
 
         return tags;
     }
