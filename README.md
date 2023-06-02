@@ -88,6 +88,7 @@ cluster.close();
       - [Create an Application Load Balancer](#step-2-create-an-application-load-balancer)
       - [Preserve host headers](#step-3-preserve-host-headers)
       - [Configure host-based routing](#step-4-configure-host-based-routing)
+      - [Configure the Neptune Gremlin Client](#step-5-configure-the-neptune-gremlin-client)
   - [Usage](#usage)
     - [Backoff and retry](#backoff-and-retry)
       - [RetryUtils](#retryutils)
@@ -679,6 +680,47 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
 ```
 
 ## Usage
+
+### Use database instance tags to control endpoint visibility
+
+Using a custom `EndpointsSelector` you can select database instance endpoints based on the presence or absence of specific tags and tag values. You can employ this feature to manage the visibility of instance endpoints to clients while you undertake some out-of-band operations. The examples below describe two operational patterns that use this feature.
+
+(Note that pre version 2.0.1 of the Neptune Gremlin Client, calls from a refresh agent to the Neptune Management API would cache tags for individual instances. This meant that changes to a database instance's tags would not be reflected in subsequent calls to get the cluster topology. This behaviour has changed in 2.0.1: the tags assocaited with a database instance now remain current with that instance.)
+
+#### Hide cold replicas
+
+Neptune's [auto-scaling feature](https://docs.aws.amazon.com/neptune/latest/userguide/manage-console-autoscaling.html) allows you to automatically adjust the number of Neptune replicas in a database cluster to meet your connectivity and workload requirements. Autoscaling can add replicas to your cluster on a sceduled basis or whenever the CPU utilization on existing instances exceeds a threshhold you specify in the autoscaling configuration.
+
+New replicas, however, will start with a cold [buffer cache](https://aws.amazon.com/blogs/database/part-1-accelerate-graph-query-performance-with-caching-in-amazon-neptune/). For some applications, the additional query latency caused by a cold cache can impact the user experience. In these circumstances, you may want to warm the cache before 'releasing' the replica to clients. In thsi way, you improve the first query performance, but at the expense of some additional latency in the replica becoming available to service queries.
+
+Neptune's `neptune_autoscaling_config` parameter allows you to specify one or more tags to be attached to newly provisioned autoscaled readers. You can use this feature in combination with a custom `EndpointsSelector` to hide cold replicas from clients.
+
+Here's an example `neptune_autoscaling_config` that tags autoscaled readers with a "buffer-cache" tag with the value "cold":
+
+```
+"{
+  \"tags\": [
+    { \"key\" : \"buffer-cache\", \"value\" : \"cold\" }
+  ],
+  \"maintenanceWindow\" : \"wed:12:03-wed:12:33\",
+  \"dbInstanceClass\" : \"db.r5.xlarge\"
+}"
+```
+
+You can use this in combination with the following custom `EndpointsSelector`, which selects reader instances that _do not_ have a "buffer-cache" tag with the value "cold":
+
+```
+EndpointsSelector selector = (cluster) ->
+        new EndpointCollection(
+                cluster.getInstances().stream()
+                        .filter(NeptuneInstanceMetadata::isReader)
+                        .filter(i -> !i.hasTag("buffer-cache", "cold")) // ignore readers with cold caches
+                        .collect(Collectors.toList()));
+```
+
+For thsi solution to work, you now need a process that can identify a newly provisioned reader, warm it with a query workload, and then delete its "buffer-cache" tag. When the tag is deleted, the instance will become visible to the application's clients.
+
+The process you use for detecting and warming readers is out of scope for this documentation. Note, however, that if you are already using an [AWS Lambda proxy](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology) in your application to retrieve cluster topology information, then you already have a source you can poll to discover cold readers (i.e. readers that do have a "buffer-cache" tag with the value "cold").
 
 ### Backoff and retry
 
