@@ -569,7 +569,7 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
         .enableIamAuth(true)
         .serviceRegion("eu-west-1")
         .addContactPoint("my-db.cluster-cktfjywp6uxn.eu-west-1.neptune.amazonaws.com") // cluster endpoint
-        .proxyAddress("https//my-proxy")
+        .proxyAddress("my-proxy")
         .proxyPort(80)
         .proxyRemoveHostHeader(true)
         .serviceRegion("eu-west-1")
@@ -584,7 +584,11 @@ For this solution to work you must set up host-based routing in your load balanc
 
 ### Using an AWS Application Load Balancer
 
-The following steps describe how to create an AWS Application Load Balancer in your Neptune VPC and configure it for host-based routing to individual database endpoints.
+The following steps describe how to create an AWS Application Load Balancer in your Neptune VPC and configure it for host-based routing to individual database endpoints. Note, you **must** configure the [Preserve host headers](#step-3-preserve-host-headers) attribute on your laod balancer for this solution to work with an IAM-auth eneabled database.
+
+#### Limitations
+
+The solution presented here uses a fixed set of target groups, one per database instance endpoint. If your database cluster topology changes, you may need to remove some of those target groups and add others. If you don't keep the target groups up-to-date with the cluster topology, topology changes that trigger a refresh of the connection pools and connection selection logic in your Neptune Gremlin Client instances may lead to connection errors in the client.
 
 #### Step 1. Create target groups
 
@@ -656,6 +660,23 @@ You can now set up [host-based routing rules](https://aws.amazon.com/blogs/aws/n
   - Open the **Rules** tab for your load balancer's listener and click the **Manage rules** button.
   - Insert a rule for each of your target groups. Specify a `Host header... is` condition with the host name of the target group's instance endpoint, and a `Forward to...` action.
   - Consider modifying the default rule to return `404 - Not Found` for connection requests that cannot be routed to an existing target group.
+  
+#### Step 5. Configure the Neptune Gremlin Client
+
+As pointed out in the [limitations](#limitations) section, this solution works with a fixed set of target groups, and therefore a fixed cluster topology. Because of this, there is little value in using a refresh agent to keep the client up-to-date with changes in the cluster topology. (If you automate the process of keeping the target groups and load balancer host-based routing rules up-to-date with changes in the cluster topology, then there certainly _is_ value in using a refresh agent.) You can, however, supply multiple instance endpoints when building a client, so as to ensure that requests are distributed across those endpoints.
+
+Here's an example of creating a client that connects through an ALB to an IAM auth-enabled Neptune database. The ALB accepts traffic on port 80, so we disable SSL (connections from the ALB to Neptune, however, do use SSL). The ALB has been configured to use host-based routing, so we can provide multiple instance endpoints to the builder:
+
+```
+GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
+        .enableIamAuth(true)
+        .enableSsl(false)
+        .serviceRegion("eu-west-1")
+        .addContactPoints("replica-1-endpoint", "replica-2-endpoint", "replica-3-endpoint") // replica endpoints
+        .proxyAddress("alb-endpoint")
+        .proxyPort(80)
+        .create();
+```
 
 ## Usage
 
