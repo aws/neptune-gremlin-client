@@ -688,17 +688,17 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
 
 Using a custom `EndpointsSelector` you can select database instance endpoints based on the presence or absence of specific [database instance tags](https://docs.aws.amazon.com/neptune/latest/userguide/tagging.html) and tag values. You can employ this feature to manage the visibility of instance endpoints to clients while you undertake some out-of-band operations. The examples below describe two operational patterns that use this feature.
 
-(Note that pre version 2.0.1 of the Neptune Gremlin Client, calls from a refresh agent to the Neptune Management API would cache tags for individual instances. This meant that changes to a database instance's tags would not be reflected in subsequent calls to get the cluster topology. This behaviour has changed in 2.0.1: the tags assocaited with a database instance now remain current with that instance.)
+(Note that pre version 2.0.1 of the Neptune Gremlin Client, calls from a refresh agent to the Neptune Management API would cache tags for individual instances. This meant that changes to a database instance's tags would not be reflected in subsequent calls to get the cluster topology. This behaviour has changed in 2.0.1: the tags associated with a database instance now remain current with that instance.)
 
 #### Prewarm replicas
 
 Neptune's [auto-scaling feature](https://docs.aws.amazon.com/neptune/latest/userguide/manage-console-autoscaling.html) allows you to automatically adjust the number of Neptune replicas in a database cluster to meet your connectivity and workload requirements. Autoscaling can add replicas to your cluster on a sceduled basis or whenever the CPU utilization on existing instances exceeds a threshhold you specify in the autoscaling configuration.
 
-New replicas, however, will start with a cold [buffer cache](https://aws.amazon.com/blogs/database/part-1-accelerate-graph-query-performance-with-caching-in-amazon-neptune/). For some applications, the additional query latency caused by a cold cache can impact the user experience. In these circumstances, you may want to warm the cache before 'releasing' the replica to clients. In thsi way, you improve the first query performance, but at the expense of some additional latency in the replica becoming available to service queries.
+New replicas, however, will start with a cold [buffer cache](https://aws.amazon.com/blogs/database/part-1-accelerate-graph-query-performance-with-caching-in-amazon-neptune/). For some applications, the additional query latency caused by a cold cache can impact the user experience. In these circumstances, you may want to warm the cache before 'releasing' the replica to clients. In this way, you improve the performance of the first queries directed to the replica, but at the expense of the replica taking a little longer to become available to service queries.
 
 Neptune's `neptune_autoscaling_config` parameter allows you to specify one or more tags to be attached to newly provisioned autoscaled readers. You can use this feature in combination with a custom `EndpointsSelector` to hide cold replicas from clients.
 
-Here's an example `neptune_autoscaling_config` that tags autoscaled readers with a "buffer-cache" tag with the value "cold":
+Here's an example `neptune_autoscaling_config` JSON parameter that tags autoscaled readers with a "buffer-cache" tag with the value "cold":
 
 ```
 "{
@@ -721,14 +721,14 @@ EndpointsSelector selector = (cluster) ->
                         .collect(Collectors.toList()));
 ```
 
-For this solution to work, you now need a process that can identify a newly provisioned reader, warm it with a query workload, and then delete its "buffer-cache" tag. When the tag is deleted, the instance will become visible to the application's clients.
+For this solution to work, you now need a process that can identify a newly provisioned reader, warm it with a query workload, and then delete its "buffer-cache" tag. When the tag is deleted, the instance will become visible to the application's Neptune Gremlin Clients.
 
-The process you use for detecting and warming readers is out of scope for this documentation. Note, however, that if you are already using an [AWS Lambda proxy](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology) in your application to retrieve cluster topology information, then you already have a source you can poll to discover cold readers (i.e. readers that do have a "buffer-cache" tag with the value "cold").
+The process you use for detecting and warming readers is out of scope for this documentation. Note, however, that if you are already using an [AWS Lambda proxy](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology) in your application to retrieve cluster topology information, then you already have a source you can poll to discover cold readers (i.e. readers that _do_ have a "buffer-cache" tag with the value "cold").
 
 
 #### Register targets with load balancer
 
-The solution described above for using an [AWS Application Load Balancer with the Neptune Gremlin Client](#using-an-aws-application-load-balancer) is limited insofar as it assumes a static cluster topology. If you want to use this solution with a refresh agent and `EndpointsSelector` that adapts to changes in the cluster toplogy, then you will need to introduce a process that can update a load balancer's target groups and host-based routing rules whenever instances are added to or removed from the cluster. Further, you will want to ensure that clients can only select an instance endpoint once it has been registered with the load balancer.
+The solution described elsewhere in this documentation for using an [AWS Application Load Balancer with the Neptune Gremlin Client](#using-an-aws-application-load-balancer) is limited insofar as it assumes a static cluster topology. If you want to use this solution with a refresh agent and `EndpointsSelector` that adapts to changes in the cluster toplogy, then you will need to introduce a process that can update a load balancer's target groups and host-based routing rules whenever instances are added to or removed from the cluster. Further, you will want to ensure that clients can only select an instance endpoint once it has been registered with the load balancer.
 
 One way to ensure that a Neptune Gremlin Client instance only uses endpoints that have been registered with an ALB, is to tag instances that have been registered with the load balancer, and to use a custom `EndpointsSelector` that filters based on this tag. The following custom `EndpointsSelector` only selects reader instances that have an "alb-status" tag with the value "registered":
 
@@ -741,9 +741,9 @@ EndpointsSelector selector = (cluster) ->
                         .collect(Collectors.toList()));
 ```
 
-For this solution to work, you now need a process that can identify whenever an instance is added to or removed from the cluster, and which updates the target groups and host-based routing rules accordingly. This process should then tag the database instance after it has been regitered with the load balancer.
+For this solution to work, you now need a process that can identify whenever an instance is added to or removed from the cluster, and which updates the target groups and host-based routing rules accordingly. This process should then tag the database instance after it has been registered with the load balancer.
 
-The process you use for detecting cluster changes and updating target groups and rotuing rules is out of scope for this documentation. Note, however, that if you are already using an [AWS Lambda proxy](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology) in your application to retrieve cluster topology information, then you already have a source you can poll to discover new instances (i.e. instances that _do not_ have an "alb-status" tag with the value "registered").
+The process you use for detecting cluster changes and updating target groups and routing rules is out of scope for this documentation. Note, however, that if you are already using an [AWS Lambda proxy](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology) in your application to retrieve cluster topology information, then you already have a source you can poll to discover new, unregistered instances (i.e. instances that _do not_ have an "alb-status" tag with the value "registered").
 
 
 ### Backoff and retry
