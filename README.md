@@ -84,9 +84,10 @@ cluster.close();
     - [Removing the Host header before sending a Sigv4 signed request to a proxy](#removing-the-host-header-before-sending-a-sigv4-signed-request-to-a-proxy)
   - [Using a load balancer with host-based routing](#using-a-load-balancer-with-host-based-routing)
     - [Using an AWS Application Load Balancer](#using-an-aws-application-load-balancer)
-      - [Create target groups](#create-target-groups)
-      - [Create an Application Load Balancer](#create-an-application-load-balancer)
-      - [Configure host-based routing](#configure-host-based-routing)
+      - [Create target groups](#step-1-create-target-groups)
+      - [Create an Application Load Balancer](#step-2-create-an-application-load-balancer)
+      - [Preserve host headers](#step-3-preserve-host-headers)
+      - [Configure host-based routing](#step-4-configure-host-based-routing)
   - [Usage](#usage)
     - [Backoff and retry](#backoff-and-retry)
       - [RetryUtils](#retryutils)
@@ -585,7 +586,7 @@ For this solution to work you must set up host-based routing in your load balanc
 
 The following steps describe how to create an AWS Application Load Balancer in your Neptune VPC and configure it for host-based routing to individual database endpoints.
 
-#### Create target groups
+#### Step 1. Create target groups
 
 Create a [separate target group](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html) for each instance in your cluster. 
 
@@ -610,17 +611,17 @@ Click **Next**.
 
 Under **IP addresses**:
 
-  - Add the IPv4 address of the instance endpoint to the target group and click the **Include as pending below** button (the port should already be set to `8182`). You can find the private IP address of the instance endpoint using `gig +short <endpoint>`.
+  - Add the IPv4 address of the instance endpoint to the target group and click the **Include as pending below** button (the port should already be set to `8182`). You can find the private IP address of the instance endpoint using `dig +short <endpoint>` from your terminal.
 
 Click **Create target group**.
 
 Repeat this process for each instance in your database cluster.
 
-#### Create an Application Load Balancer
+#### Step 2. Create an Application Load Balancer
 
 ##### Compare and select load balancer type
 
-Under **Load balancer types** choose **Application Load Balancer** and click **create**.
+Under **Load balancer types** choose **Application Load Balancer** and click **Create**.
 
 ##### Create Application Load Balancer
 
@@ -640,15 +641,15 @@ Under **Listeners and routing**
   
 Click **Create load balancer**
 
-##### Preserve host headers
+#### Step 3. Preserve host headers
 
-Once you've created your laod balancer, there's one furtehr change you must make, whic is to configure it to [preserve host headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#host-header-preservation):
+Once you've created your load balancer, there's one further change you must make, which is to configure it to [preserve host headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#host-header-preservation):
 
   - On the load balancer's **Attributes** tab, click **Edit**.
   - Under the **Packet handling** section, enable **Preserve host header**.
   - Click **Save changes**.
   
-#### Configure host-based routing
+#### Step 4. Configure host-based routing
 
 You can now set up [host-based routing rules](https://aws.amazon.com/blogs/aws/new-host-based-routing-support-for-aws-application-load-balancers/) for all your target groups.
 
