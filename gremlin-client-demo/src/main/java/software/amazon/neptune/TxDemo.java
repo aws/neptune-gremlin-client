@@ -58,9 +58,9 @@ public class TxDemo implements Runnable {
     @Once
     private int neptunePort = 8182;
 
-    @Option(name = {"--enable-ssl"}, description = "Enables connectivity over SSL (optional, default true)")
+    @Option(name = {"--disable-ssl"}, description = "Disables connectivity over SSL (optional, default false)")
     @Once
-    private boolean enableSsl = true;
+    private boolean disableSsl = false;
 
     @Option(name = {"--enable-iam"}, description = "Enables IAM database authentication (optional, default false)")
     @Once
@@ -96,7 +96,7 @@ public class TxDemo implements Runnable {
             ClusterEndpointsRefreshAgent refreshAgent = createRefreshAgent();
 
             NeptuneGremlinClusterBuilder builder = NeptuneGremlinClusterBuilder.build()
-                    .enableSsl(enableSsl)
+                    .enableSsl(!disableSsl)
                     .enableIamAuth(enableIam)
                     .iamProfile(profile)
                     .addContactPoints(refreshAgent.getEndpoints(selector))
