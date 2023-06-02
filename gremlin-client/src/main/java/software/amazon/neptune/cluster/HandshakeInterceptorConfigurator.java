@@ -37,15 +37,15 @@ class HandshakeInterceptorConfigurator implements TopologyAwareBuilderConfigurat
     private final boolean removeHostHeader;
 
     HandshakeInterceptorConfigurator(boolean isDirectConnection,
-                                            HandshakeInterceptor interceptor,
-                                            boolean enableIamAuth,
-                                            int port,
-                                            int proxyPort,
-                                            String proxyAddress,
-                                            String serviceRegion,
-                                            String iamProfile,
-                                            AWSCredentialsProvider credentials,
-                                            boolean removeHostHeader) {
+                                     HandshakeInterceptor interceptor,
+                                     boolean enableIamAuth,
+                                     int port,
+                                     int proxyPort,
+                                     String proxyAddress,
+                                     String serviceRegion,
+                                     String iamProfile,
+                                     AWSCredentialsProvider credentials,
+                                     boolean removeHostHeader) {
         this.isDirectConnection = isDirectConnection;
         this.interceptor = interceptor;
         this.enableIamAuth = enableIamAuth;
@@ -60,7 +60,7 @@ class HandshakeInterceptorConfigurator implements TopologyAwareBuilderConfigurat
 
     @Override
     public void apply(Cluster.Builder builder, EndpointCollection endpoints) {
-        if (endpoints == null || endpoints.isEmpty()){
+        if (endpoints == null || endpoints.isEmpty()) {
             return;
         }
 
@@ -78,7 +78,7 @@ class HandshakeInterceptorConfigurator implements TopologyAwareBuilderConfigurat
 
         if (interceptor != null) {
             builder.handshakeInterceptor(interceptor);
-        } else if (enableIamAuth) {
+        } else {
 
             IamAuthConfig.IamAuthConfigBuilder iamAuthConfigBuilder =
                     IamAuthConfig.builder()
@@ -87,6 +87,10 @@ class HandshakeInterceptorConfigurator implements TopologyAwareBuilderConfigurat
                             .setServiceRegion(serviceRegion)
                             .setIamProfile(iamProfile)
                             .setCredentials(credentials);
+
+            if (enableIamAuth) {
+                iamAuthConfigBuilder.enableIamAuth();
+            }
 
             if (!isDirectConnection) {
                 iamAuthConfigBuilder.connectViaLoadBalancer();

@@ -39,6 +39,6 @@ public class IamAuthConfigTest {
 
         String json = config.asJsonString();
 
-        assertEquals("{\"endpoints\":[\"endpoint1\",\"endpoint2\"],\"port\":8182,\"connectViaLoadBalancer\":true,\"removeHostHeaderAfterSigning\":true,\"serviceRegion\":\"us-east-1\",\"iamProfile\":\"neptune\"}", json);
+        assertEquals("{\"endpoints\":[\"endpoint1\",\"endpoint2\"],\"port\":8182,\"enableIamAuth\":false,\"connectViaLoadBalancer\":true,\"removeHostHeaderAfterSigning\":true,\"serviceRegion\":\"us-east-1\",\"iamProfile\":\"neptune\"}", json);
     }
 }

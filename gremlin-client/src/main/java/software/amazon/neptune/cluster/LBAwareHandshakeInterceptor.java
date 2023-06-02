@@ -40,30 +40,35 @@ class LBAwareHandshakeInterceptor implements HandshakeInterceptor {
 
     @Override
     public FullHttpRequest apply(FullHttpRequest request) {
-        logger.trace("aimAuthConfig: {}, serviceRegion: {}", iamAuthConfig, serviceRegion);
+        logger.trace("iamAuthConfig: {}, serviceRegion: {}", iamAuthConfig, serviceRegion);
 
-        if (iamAuthConfig.connectViaLoadBalancer()) {
+        if (iamAuthConfig.enableIamAuth() || iamAuthConfig.connectViaLoadBalancer()){
             request.headers().remove("Host");
+            request.headers().remove("host");
             request.headers().add("Host", iamAuthConfig.chooseHostHeader());
         }
 
-        try {
+        if (iamAuthConfig.enableIamAuth()){
 
-            NeptuneNettyHttpSigV4Signer sigV4Signer = new NeptuneNettyHttpSigV4Signer(
-                    serviceRegion,
-                    iamAuthConfig.credentialsProviderChain());
+            try {
 
-            sigV4Signer.signRequest(request);
+                NeptuneNettyHttpSigV4Signer sigV4Signer = new NeptuneNettyHttpSigV4Signer(
+                        serviceRegion,
+                        iamAuthConfig.credentialsProviderChain());
 
-            if (iamAuthConfig.removeHostHeaderAfterSigning()) {
-                request.headers().remove("Host");
+                sigV4Signer.signRequest(request);
+
+                if (iamAuthConfig.removeHostHeaderAfterSigning()) {
+                    request.headers().remove("Host");
+                }
+
+
+            } catch (NeptuneSigV4SignerException e) {
+                throw new RuntimeException("Exception occurred while signing the request", e);
             }
-
-            return request;
-
-        } catch (NeptuneSigV4SignerException e) {
-            throw new RuntimeException("Exception occurred while signing the request", e);
         }
+
+        return request;
     }
 
     private String getServiceRegion() {

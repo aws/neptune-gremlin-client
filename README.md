@@ -82,6 +82,11 @@ cluster.close();
   - [Connecting via a proxy](#connecting-via-a-proxy)
     - [Configuring proxy connections for an IAM auth enabled Neptune database](#configuring-proxy-connections-for-an-iam-auth-enabled-neptune-database)
     - [Removing the Host header before sending a Sigv4 signed request to a proxy](#removing-the-host-header-before-sending-a-sigv4-signed-request-to-a-proxy)
+  - [Using a load balancer with host-based routing](using-a-load-balancer-with-host-based-routing)
+    - [Using an AWS Application Load Balancer](using-an-aws-application-load-balancer)
+      - [Create target groups](create-target-groups)
+      - [Create an Application Load Balancer](create-an-application-load-balancer)
+      - [Configure host-based routing](configure-host-based-routing)
   - [Usage](#usage)
     - [Backoff and retry](#backoff-and-retry)
       - [RetryUtils](#retryutils)
@@ -554,7 +559,7 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
         .create();
 ```
 
-#### Removing the Host header before sending a Sigv4 signed request to a proxy
+### Removing the Host header before sending a Sigv4 signed request to a proxy
 
 In some circumstances, you may need to remove the HTTP `Host` header after signing the request, but before sending it to the proxy. For example, your proxy may add a `Host` header to the request: if that's the case, you don't want the request when it arrives at the Neptune endpoint to contain _two_ `Host` headers:
 
@@ -569,6 +574,87 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
         .serviceRegion("eu-west-1")
         .create();
 ```
+
+## Using a load balancer with host-based routing
+
+As of Neptune Gremlin Client version 2.0.1 you can use the Neptune Gremlin Client with a load balancer that supports host-based routing to balance requests across instances in your database cluster as selected by an `EndpointsSelector`. This allows you to use custom endpoint selection logic in the client and still distribute requests across the instances in the selection set.
+
+For this solution to work you must set up host-based routing in your load balancer. 
+
+### Using an AWS Application Load Balancer
+
+The following steps describe how to create an AWS Application Load Balancer in your Neptune VPC and configure it for host-based routing to individual database endpoints.
+
+#### Create target groups
+
+Create a [separate target group](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html) for each instance in your cluster. 
+
+##### Specify group details
+
+Under **Basic configuration**:
+
+  - Select **IP addresses** as the target type.
+  - Give the target group a name that clearly indicates which instance it is associated with.
+  - Select the `HTTPS` protocol and port `8182` (or whatever port your database cluster is using).
+  - Select the Neptune VPC.
+
+Under **Health checks**:
+
+  - The health check protocol should already be set to `HTTPS`.
+  - Enter `/status` for the health check path.
+  - If your Neptune database is secured with IAM database authentication, you'll need to update the **Advanced health check settings**: set the success codes to `200-403`. 
+  
+Click **Next**.
+  
+##### Register targets
+
+Under **IP addresses**:
+
+  - Add the IPv4 address of the instance endpoint to the target group and click the **Include as pending below** button (the port should already be set to `8182`). You can find the private IP address of the instance endpoint using `gig +short <endpoint>`.
+
+Click **Create target group**.
+
+Repeat this process for each instance in your database cluster.
+
+#### Create an Application Load Balancer
+
+##### Compare and select load balancer type
+
+Under **Load balancer types** choose **Application Load Balancer** and click **create**.
+
+##### Create Application Load Balancer
+
+Under **Network mapping**:
+
+  - Select the Neptune VPC.
+  - If you've configured the load balancer to be internet facing, you must choose at least two subnets in the Neptune VPC with routes to an internet gateway.
+  
+Under **Security groups**
+
+  - Select one or more security groups that allow access to your load balancer from your clients.
+  
+Under **Listeners and routing**
+
+  - Select the protocol clients will use to access the load balancer. If you select `HTTPS` you'll also have to configure the **Secure listener settings**.
+  - At this point, you'll need to select one of your target groups to act as the target for the default action. 
+  
+Click **Create load balancer**
+
+##### Preserve host headers
+
+Once you've created your laod balancer, there's one furtehr change you must make, whic is to configure it to [preserve host headers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#host-header-preservation):
+
+  - On the load balancer's **Attributes** tab, click **Edit**.
+  - Under the **Packet handling** section, enable **Preserve host header**.
+  - Click **Save changes**.
+  
+#### Configure host-based routing
+
+You can now set up [host-based routing rules](https://aws.amazon.com/blogs/aws/new-host-based-routing-support-for-aws-application-load-balancers/) for all your target groups.
+
+  - Open the **Rules** tab for your load balancer's listener and click the **Manage rules** button.
+  - Insert a rule for each of your target groups. Specify a `Host header... is` condition with the host name of the target group's instance endpoint, and a `Forward to...` action.
+  - Consider modifying the default rule to return `404 - Not Found` for connection requests that cannot be routed to an existing target group.
 
 ## Usage
 

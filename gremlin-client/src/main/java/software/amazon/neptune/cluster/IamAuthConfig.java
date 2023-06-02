@@ -32,13 +32,14 @@ class IamAuthConfig {
 
     public static final String DEFAULT_PROFILE = "default";
 
-    public static IamAuthConfigBuilder builder(){
+    public static IamAuthConfigBuilder builder() {
         return new IamAuthConfigBuilder();
     }
 
     private final List<String> endpoints;
     private final int port;
     private final boolean connectViaLoadBalancer;
+    private final boolean enableIamAuth;
     private final boolean removeHostHeaderAfterSigning;
     private final String serviceRegion;
     private final String iamProfile;
@@ -46,14 +47,16 @@ class IamAuthConfig {
     private final Random random = new Random(DateTime.now().getMillis());
 
     IamAuthConfig(Collection<String> endpoints,
-                         int port,
-                         boolean connectViaLoadBalancer,
-                         boolean removeHostHeaderAfterSigning,
-                         String serviceRegion,
-                         String iamProfile,
-                         AWSCredentialsProvider credentials) {
+                  int port,
+                  boolean enableIamAuth,
+                  boolean connectViaLoadBalancer,
+                  boolean removeHostHeaderAfterSigning,
+                  String serviceRegion,
+                  String iamProfile,
+                  AWSCredentialsProvider credentials) {
         this.endpoints = new ArrayList<>(endpoints);
         this.port = port;
+        this.enableIamAuth = enableIamAuth;
         this.connectViaLoadBalancer = connectViaLoadBalancer;
         this.removeHostHeaderAfterSigning = removeHostHeaderAfterSigning;
         this.serviceRegion = serviceRegion;
@@ -65,10 +68,10 @@ class IamAuthConfig {
         return serviceRegion;
     }
 
-    public AWSCredentialsProviderChain credentialsProviderChain(){
-        if (credentials != null){
+    public AWSCredentialsProviderChain credentialsProviderChain() {
+        if (credentials != null) {
             return new AWSCredentialsProviderChain(Collections.singletonList(credentials));
-        } else if (!iamProfile.equals(DEFAULT_PROFILE)){
+        } else if (!iamProfile.equals(DEFAULT_PROFILE)) {
             return new AWSCredentialsProviderChain(Collections.singletonList(new ProfileCredentialsProvider(iamProfile)));
         } else {
             return new DefaultAWSCredentialsProviderChain();
@@ -76,7 +79,12 @@ class IamAuthConfig {
     }
 
     public String chooseHostHeader() {
-        return String.format("%s:%s", endpoints.get(random.nextInt(endpoints.size())), port);
+        String address = endpoints.size() == 1 ? endpoints.get(0) : endpoints.get(random.nextInt(endpoints.size()));
+        return String.format("%s:%s", address, port);
+    }
+
+    public boolean enableIamAuth() {
+        return enableIamAuth;
     }
 
     public boolean connectViaLoadBalancer() {
@@ -97,6 +105,7 @@ class IamAuthConfig {
 
         json.set("endpoints", arrayNode);
         json.put("port", port);
+        json.put("enableIamAuth", enableIamAuth);
         json.put("connectViaLoadBalancer", connectViaLoadBalancer);
         json.put("removeHostHeaderAfterSigning", removeHostHeaderAfterSigning);
         json.put("serviceRegion", serviceRegion);
@@ -114,61 +123,70 @@ class IamAuthConfig {
 
         private final List<String> endpoints = new ArrayList<>();
         private int port = 8182;
+        private boolean enableIamAuth = false;
         private boolean connectViaLoadBalancer = false;
         private boolean removeHostHeaderAfterSigning = false;
         private String serviceRegion = "";
         private String iamProfile = DEFAULT_PROFILE;
         private AWSCredentialsProvider credentials = null;
 
-        public IamAuthConfigBuilder addNeptuneEndpoints(String... endpoints){
+        public IamAuthConfigBuilder addNeptuneEndpoints(String... endpoints) {
             this.endpoints.addAll(Arrays.asList(endpoints));
             return this;
         }
 
-        public IamAuthConfigBuilder addNeptuneEndpoints(List<String> endpoints){
+        public IamAuthConfigBuilder addNeptuneEndpoints(List<String> endpoints) {
             this.endpoints.addAll(endpoints);
             return this;
         }
 
-        public IamAuthConfigBuilder setNeptunePort(int port){
+        public IamAuthConfigBuilder setNeptunePort(int port) {
             this.port = port;
             return this;
         }
 
-        public IamAuthConfigBuilder setServiceRegion(String serviceRegion){
+        public IamAuthConfigBuilder setServiceRegion(String serviceRegion) {
             this.serviceRegion = serviceRegion;
             return this;
         }
 
-        public IamAuthConfigBuilder setIamProfile(String iamProfile){
+        public IamAuthConfigBuilder setIamProfile(String iamProfile) {
             this.iamProfile = iamProfile;
             return this;
         }
 
-        public IamAuthConfigBuilder setCredentials(AWSCredentialsProvider credentials){
+        public IamAuthConfigBuilder setCredentials(AWSCredentialsProvider credentials) {
             this.credentials = credentials;
             return this;
         }
 
-        public IamAuthConfigBuilder removeHostHeaderAfterSigning(){
+        public IamAuthConfigBuilder enableIamAuth() {
+            this.enableIamAuth = true;
+            return this;
+        }
+
+        public IamAuthConfigBuilder removeHostHeaderAfterSigning() {
             this.removeHostHeaderAfterSigning = true;
             return this;
         }
 
-        public IamAuthConfigBuilder connectViaLoadBalancer(){
+        public IamAuthConfigBuilder connectViaLoadBalancer() {
             this.connectViaLoadBalancer = true;
             return this;
         }
 
-        public IamAuthConfig build(){
+        public IamAuthConfig build() {
             return new IamAuthConfig(
                     endpoints,
                     port,
+                    enableIamAuth,
                     connectViaLoadBalancer,
                     removeHostHeaderAfterSigning,
                     serviceRegion,
                     iamProfile,
                     credentials);
         }
+
+
     }
 }
