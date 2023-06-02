@@ -90,6 +90,9 @@ cluster.close();
       - [Configure host-based routing](#step-4-configure-host-based-routing)
       - [Configure the Neptune Gremlin Client](#step-5-configure-the-neptune-gremlin-client)
   - [Usage](#usage)
+    - [Use database instance tags to control endpoint visibility](#use-database-instance-tags-to-control-endpoint-visibility)
+      - [Prewarm replicas](#prewarm-replicas)
+      - [Register targets with load balancer](#register-targets-with-load-balancer)
     - [Backoff and retry](#backoff-and-retry)
       - [RetryUtils](#retryutils)
       - [Backoff and retry when creating a  GremlinCluster and GremlinClient](#backoff-and-retry-when-creating-a-gremlincluster-and-gremlinclient)
@@ -683,11 +686,11 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
 
 ### Use database instance tags to control endpoint visibility
 
-Using a custom `EndpointsSelector` you can select database instance endpoints based on the presence or absence of specific tags and tag values. You can employ this feature to manage the visibility of instance endpoints to clients while you undertake some out-of-band operations. The examples below describe two operational patterns that use this feature.
+Using a custom `EndpointsSelector` you can select database instance endpoints based on the presence or absence of specific [database instance tags](https://docs.aws.amazon.com/neptune/latest/userguide/tagging.html) and tag values. You can employ this feature to manage the visibility of instance endpoints to clients while you undertake some out-of-band operations. The examples below describe two operational patterns that use this feature.
 
 (Note that pre version 2.0.1 of the Neptune Gremlin Client, calls from a refresh agent to the Neptune Management API would cache tags for individual instances. This meant that changes to a database instance's tags would not be reflected in subsequent calls to get the cluster topology. This behaviour has changed in 2.0.1: the tags assocaited with a database instance now remain current with that instance.)
 
-#### Hide cold replicas
+#### Prewarm replicas
 
 Neptune's [auto-scaling feature](https://docs.aws.amazon.com/neptune/latest/userguide/manage-console-autoscaling.html) allows you to automatically adjust the number of Neptune replicas in a database cluster to meet your connectivity and workload requirements. Autoscaling can add replicas to your cluster on a sceduled basis or whenever the CPU utilization on existing instances exceeds a threshhold you specify in the autoscaling configuration.
 
@@ -718,9 +721,30 @@ EndpointsSelector selector = (cluster) ->
                         .collect(Collectors.toList()));
 ```
 
-For thsi solution to work, you now need a process that can identify a newly provisioned reader, warm it with a query workload, and then delete its "buffer-cache" tag. When the tag is deleted, the instance will become visible to the application's clients.
+For this solution to work, you now need a process that can identify a newly provisioned reader, warm it with a query workload, and then delete its "buffer-cache" tag. When the tag is deleted, the instance will become visible to the application's clients.
 
 The process you use for detecting and warming readers is out of scope for this documentation. Note, however, that if you are already using an [AWS Lambda proxy](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology) in your application to retrieve cluster topology information, then you already have a source you can poll to discover cold readers (i.e. readers that do have a "buffer-cache" tag with the value "cold").
+
+
+#### Register targets with load balancer
+
+The solution described above for using an [AWS Application Load Balancer with the Neptune Gremlin Client](#using-an-aws-application-load-balancer) is limited insofar as it assumes a static cluster topology. If you want to use this solution with a refresh agent and `EndpointsSelector` that adapts to changes in the cluster toplogy, then you will need to introduce a process that can update a load balancer's target groups and host-based routing rules whenever instances are added to or removed from the cluster. Further, you will want to ensure that clients can only select an instance endpoint once it has been registered with the load balancer.
+
+One way to ensure that a Neptune Gremlin Client instance only uses endpoints that have been registered with an ALB, is to tag instances that have been registered with the load balancer, and to use a custom `EndpointsSelector` that filters based on this tag. The following custom `EndpointsSelector` only selects reader instances that have an "alb-status" tag with the value "registered":
+
+```
+EndpointsSelector selector = (cluster) ->
+        new EndpointCollection(
+                cluster.getInstances().stream()
+                        .filter(NeptuneInstanceMetadata::isReader)
+                        .filter(i -> i.hasTag("alb-status", "registered"))
+                        .collect(Collectors.toList()));
+```
+
+For this solution to work, you now need a process that can identify whenever an instance is added to or removed from the cluster, and which updates the target groups and host-based routing rules accordingly. This process should then tag the database instance after it has been regitered with the load balancer.
+
+The process you use for detecting cluster changes and updating target groups and rotuing rules is out of scope for this documentation. Note, however, that if you are already using an [AWS Lambda proxy](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology) in your application to retrieve cluster topology information, then you already have a source you can poll to discover new instances (i.e. instances that _do not_ have an "alb-status" tag with the value "registered").
+
 
 ### Backoff and retry
 
