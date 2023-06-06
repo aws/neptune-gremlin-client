@@ -401,6 +401,23 @@ ClusterEndpointsRefreshAgent refreshAgent =
         ClusterEndpointsRefreshAgent.managementApi(clusterId, neptuneRegion, credentialsProvider);
 ```
 
+If [AWS STS Regional endpoints](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_enable-regions.html) have been enabled in your account, you may want to configure the credentials provider for Regional STS endpoint access:
+
+```
+EndpointConfiguration regionEndpointConfig = new EndpointConfiguration("https://sts.eu-west-1.amazonaws.com", "eu-west-1");
+
+AWSSecurityTokenService stsRegionalClient = AWSSecurityTokenServiceClientBuilder.standard()
+        .withEndpointConfiguration(regionEndpointConfig)
+        .build();
+        
+STSAssumeRoleSessionCredentialsProvider credentialsProvider =
+        new STSAssumeRoleSessionCredentialsProvider.Builder(crossAccountRoleArn, "AssumeRoleSession1")
+        .withStsClient(stsRegionalClient)
+        .build();
+``` 
+
+Remember to call `close()` on the credentials provider when it is no longer needed. This shuts down the thread that performs asynchronous credential refreshing.
+
 ## EndpointsSelector
 
 The `EndpointsSelector` interface allows you to create objects that encapuslate custom endpoint selection logic. When a selector's `getEndpoints()` method is invoked, it is passed a `NeptuneClusterMetadata` object that contains details about the database cluster's topology. In your `getEndpoints()` implementation, you can then filter instances in the cluster by properties such as role (reader or writer), instance ID, instance type, tags, and Availability Zone. 
