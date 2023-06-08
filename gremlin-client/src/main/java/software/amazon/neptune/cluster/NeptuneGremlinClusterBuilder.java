@@ -50,6 +50,11 @@ public class NeptuneGremlinClusterBuilder {
     private NeptuneGremlinClusterBuilder() {
     }
 
+    public NeptuneGremlinClusterBuilder endpointSelectionStrategy(EndpointSelectionStrategy endpointSelectionStrategy){
+        this.innerBuilder.endpointSelectionStrategy(endpointSelectionStrategy);
+        return this;
+    }
+
     /**
      * Number of millis to wait between each attempt to acquire a connection.
      */

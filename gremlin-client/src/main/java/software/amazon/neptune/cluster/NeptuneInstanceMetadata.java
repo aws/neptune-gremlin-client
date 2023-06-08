@@ -13,6 +13,7 @@ permissions and limitations under the License.
 package software.amazon.neptune.cluster;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.tinkerpop.gremlin.driver.Endpoint;
@@ -20,6 +21,7 @@ import org.apache.tinkerpop.gremlin.driver.Endpoint;
 import java.io.IOException;
 import java.util.*;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class NeptuneInstanceMetadata implements Endpoint {
 
     public static NeptuneInstanceMetadata fromByteArray(byte[] bytes) throws IOException {
@@ -36,6 +38,8 @@ public class NeptuneInstanceMetadata implements Endpoint {
 
     private final Map<String, String> annotations = new HashMap<>();
     private final Map<String, String> tags = new HashMap<>();
+
+    private final Map<String, Double> metrics = new HashMap<>();
 
     public NeptuneInstanceMetadata() {
 
@@ -80,9 +84,19 @@ public class NeptuneInstanceMetadata implements Endpoint {
         this.annotations.putAll(annotations);
     }
 
+    public void setMetrics(Map<String, Double> metrics) {
+        this.metrics.clear();
+        this.metrics.putAll(metrics);
+    }
+
     @Override
     public void setAnnotation(String key, String value){
         annotations.put(key, value);
+    }
+
+    @Override
+    public void setMetric(String key, Double value){
+        metrics.put(key, value);
     }
 
     public NeptuneInstanceMetadata withInstanceId(String instanceId) {
@@ -164,6 +178,11 @@ public class NeptuneInstanceMetadata implements Endpoint {
         return annotations;
     }
 
+    @Override
+    public Map<String, Double> getMetrics() {
+        return metrics;
+    }
+
     public boolean hasTag(String tag) {
         return tags.containsKey(tag);
     }
@@ -207,7 +226,8 @@ public class NeptuneInstanceMetadata implements Endpoint {
                 ", instanceType='" + instanceType + '\'' +
                 ", annotations=" + annotations +
                 ", tags=" + tags +
-                '}';
+                ", metrics=" + metrics +
+                "}";
     }
 
     public String toJsonString() throws JsonProcessingException {

@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-class EndpointClient {
+public class EndpointClient {
 
     public static List<EndpointClient> create(Map<Endpoint, Cluster> endpointClusters){
         return create(endpointClusters, cluster -> cluster.connect().init());
@@ -38,7 +38,7 @@ class EndpointClient {
     private final Endpoint endpoint;
     private final Client client;
 
-    EndpointClient(Endpoint endpoint, Client client) {
+    public EndpointClient(Endpoint endpoint, Client client) {
         this.endpoint = endpoint;
         this.client = client;
     }

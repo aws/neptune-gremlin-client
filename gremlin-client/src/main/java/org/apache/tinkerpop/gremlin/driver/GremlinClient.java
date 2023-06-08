@@ -19,12 +19,13 @@ import org.slf4j.LoggerFactory;
 import software.amazon.utils.CollectionUtils;
 
 import java.net.URI;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -32,12 +33,10 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
     private static final Logger logger = LoggerFactory.getLogger(GremlinClient.class);
 
-    private final AtomicReference<EndpointClientCollection> endpointClientCollection = new AtomicReference<>(new EndpointClientCollection());
-    private final AtomicLong index = new AtomicLong(0);
+    private final AtomicReference<EndpointClientCollection> endpointClientCollection = new AtomicReference<>();
     private final AtomicReference<CompletableFuture<Void>> closing = new AtomicReference<>(null);
     private final ConnectionAttemptManager connectionAttemptManager;
     private final ClientClusterCollection clientClusterCollection;
-    private final ClusterFactory clusterFactory;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final EndpointStrategies endpointStrategies;
     private final AcquireConnectionConfig acquireConnectionConfig;
@@ -46,19 +45,17 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
                   Settings settings,
                   EndpointClientCollection endpointClientCollection,
                   ClientClusterCollection clientClusterCollection,
-                  ClusterFactory clusterFactory,
                   EndpointStrategies endpointStrategies,
                   AcquireConnectionConfig acquireConnectionConfig) {
         super(cluster, settings);
 
         this.endpointClientCollection.set(endpointClientCollection);
         this.clientClusterCollection = clientClusterCollection;
-        this.clusterFactory = clusterFactory;
         this.endpointStrategies = endpointStrategies;
         this.acquireConnectionConfig = acquireConnectionConfig;
         this.connectionAttemptManager = acquireConnectionConfig.createConnectionAttemptManager(this);
 
-        logger.info("availableEndpointFilter: {}", endpointStrategies.endpointFilter());
+        logger.info("endpointStrategies: {}", endpointStrategies);
     }
 
     /**
@@ -90,7 +87,8 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
         EndpointClientCollection newEndpointClientCollection = new EndpointClientCollection(
                 CollectionUtils.join(survivingEndpointClients, newEndpointClients),
-                rejectedEndpoints
+                rejectedEndpoints,
+                endpointStrategies.endpointSelectionStrategy()
         );
 
         endpointClientCollection.set(newEndpointClientCollection);
@@ -137,9 +135,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
                 }
             }
 
-            connection = currentEndpointClientCollection.chooseConnection(
-                    msg,
-                    ec -> ec.get((int) (index.getAndIncrement() % ec.size())));
+            connection = currentEndpointClientCollection.chooseConnection(msg);
 
             if (connection == null) {
 

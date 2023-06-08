@@ -18,6 +18,9 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
 import org.apache.tinkerpop.gremlin.driver.Endpoint;
 import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
+import org.apache.tinkerpop.gremlin.driver.GremlinClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.neptune.cluster.*;
 import software.amazon.utils.EnvironmentVariableUtils;
 import software.amazon.utils.RegionUtils;
@@ -33,6 +36,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
 
+    private static final Logger logger = LoggerFactory.getLogger(NeptuneEndpointsInfoLambda.class);
+
     private final ClusterEndpointsRefreshAgent refreshAgent;
     private final AtomicReference<NeptuneClusterMetadata> neptuneClusterMetadata = new AtomicReference<>();
     private final String suspendedEndpoints;
@@ -41,21 +46,27 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
         this(
                 EnvironmentVariableUtils.getMandatoryEnv("clusterId"),
                 Integer.parseInt(EnvironmentVariableUtils.getOptionalEnv("pollingIntervalSeconds", "15")),
-                EnvironmentVariableUtils.getOptionalEnv("suspended", "none")
+                EnvironmentVariableUtils.getOptionalEnv("suspended", "none"),
+                Boolean.parseBoolean(EnvironmentVariableUtils.getOptionalEnv("collectCloudWatchMetrics", "false"))
         );
     }
 
-    public NeptuneEndpointsInfoLambda(String clusterId, int pollingIntervalSeconds, String suspendedEndpoints) {
+    public NeptuneEndpointsInfoLambda(String clusterId, int pollingIntervalSeconds, String suspendedEndpoints, boolean collectCloudWatchMetrics) {
 
-        this.refreshAgent = ClusterEndpointsRefreshAgent.managementApi(clusterId,
-                RegionUtils.getCurrentRegionName(),
-                new DefaultAWSCredentialsProviderChain());
+        this.refreshAgent = ClusterEndpointsRefreshAgent.usingManagementApi()
+                .withClusterId(clusterId)
+                .withRegion(RegionUtils.getCurrentRegionName())
+                .withCredentials(new DefaultAWSCredentialsProviderChain())
+                .withCollectCloudWatchMetrics(collectCloudWatchMetrics)
+                .build();
+
         this.neptuneClusterMetadata.set(refreshAgent.getClusterMetadata());
         this.suspendedEndpoints = suspendedEndpoints.toLowerCase();
 
-        System.out.println(String.format("clusterId: %s", clusterId));
-        System.out.println(String.format("pollingIntervalSeconds: %s", pollingIntervalSeconds));
-        System.out.println(String.format("suspendedEndpoints: %s", this.suspendedEndpoints));
+        logger.info(String.format("clusterId: %s", clusterId));
+        logger.info(String.format("pollingIntervalSeconds: %s", pollingIntervalSeconds));
+        logger.info(String.format("suspendedEndpoints: %s", this.suspendedEndpoints));
+        logger.info(String.format("collectCloudWatchMetrics: %s", collectCloudWatchMetrics));
 
         refreshAgent.startPollingNeptuneAPI(
                 (OnNewClusterMetadata) metadata -> neptuneClusterMetadata.set(metadata),
@@ -65,8 +76,6 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
 
     @Override
     public void handleRequest(InputStream input, OutputStream output, Context context) throws IOException {
-
-        LambdaLogger logger = context.getLogger();
 
         EndpointsType endpointsType = null;
 
@@ -79,20 +88,20 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
         }
 
         if (endpointsType != null) {
-            returnEndpointListForLegacyClient(endpointsType, logger, output);
+            returnEndpointListForLegacyClient(endpointsType, output);
         } else {
-            returnClusterMetadata(logger, output);
+            returnClusterMetadata(output);
         }
     }
 
-    private void returnClusterMetadata(LambdaLogger logger, OutputStream output) throws IOException {
+    private void returnClusterMetadata(OutputStream output) throws IOException {
 
-        logger.log("Returning cluster metadata");
+        logger.info("Returning cluster metadata");
 
         NeptuneClusterMetadata clusterMetadata = addAnnotations(neptuneClusterMetadata.get());
         String results = clusterMetadata.toJsonString();
 
-        logger.log("Results: " + results);
+        logger.info("Results: " + results);
 
         try (Writer writer = new BufferedWriter(new OutputStreamWriter(output, UTF_8))) {
             writer.write(results);
@@ -101,10 +110,9 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
     }
 
     private void returnEndpointListForLegacyClient(EndpointsType endpointsType,
-                                                   LambdaLogger logger,
                                                    OutputStream output) throws IOException {
 
-        logger.log("Returning list of endpoints for EndpointsType: " + endpointsType);
+        logger.info("Returning list of endpoints for EndpointsType: " + endpointsType);
 
         NeptuneClusterMetadata clusterMetadata = addAnnotations(neptuneClusterMetadata.get());
         EndpointCollection endpoints = endpointsType.getEndpoints(clusterMetadata);
@@ -115,7 +123,7 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
         }
 
         String results = String.join(",", addresses);
-        logger.log("Results: " + results);
+        logger.info("Results: " + results);
 
         try (Writer writer = new BufferedWriter(new OutputStreamWriter(output, UTF_8))) {
             writer.write(results);

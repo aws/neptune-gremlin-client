@@ -84,6 +84,14 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
                 new GetEndpointsFromNeptuneManagementApi(clusterId, region, iamProfile, clientConfiguration));
     }
 
+    public static GetEndpointsFromNeptuneManagementApi.Builder usingManagementApi(){
+        return new GetEndpointsFromNeptuneManagementApi.Builder();
+    }
+
+    public static GetEndpointsFromLambdaProxy.Builder usingLambdaProxy(){
+        return new GetEndpointsFromLambdaProxy.Builder();
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(ClusterEndpointsRefreshAgent.class);
 
     private final ClusterEndpointsFetchStrategy endpointsFetchStrategy;

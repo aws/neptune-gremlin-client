@@ -21,6 +21,7 @@ public class DatabaseEndpoint implements Endpoint {
 
     private String address;
     private final Map<String, String> annotations = new HashMap<>();
+    private final Map<String, Double> metrics = new HashMap<>();
 
     public void setAddress(String address) {
         this.address = address;
@@ -63,8 +64,18 @@ public class DatabaseEndpoint implements Endpoint {
     }
 
     @Override
+    public Map<String, Double> getMetrics() {
+        return metrics;
+    }
+
+    @Override
     public void setAnnotation(String key, String value) {
         annotations.put(key, value);
+    }
+
+    @Override
+    public void setMetric(String key, Double value) {
+        metrics.put(key, value);
     }
 
     @Override
@@ -72,6 +83,7 @@ public class DatabaseEndpoint implements Endpoint {
         return "DatabaseEndpoint{" +
                 "address='" + address + '\'' +
                 ", annotations=" + annotations +
-                '}';
+                ", metrics=" + metrics +
+                "}";
     }
 }

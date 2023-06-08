@@ -4,6 +4,7 @@ import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Predicate;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
@@ -21,14 +22,16 @@ public class EndpointClientCollectionTest {
         EndpointClient endpointClient3 = new EndpointClient(endpoint3, mock(Client.class));
 
         EndpointClientCollection endpointClientCollection =
-                new EndpointClientCollection(Arrays.asList(endpointClient1, endpointClient2, endpointClient3));
+                new EndpointClientCollection(
+                        Arrays.asList(endpointClient1, endpointClient2, endpointClient3),
+                        new DefaultEndpointSelectionStrategy());
 
         List<EndpointClient> survivingEndpointClients =
                 endpointClientCollection.getSurvivingEndpointClients(
                         new EndpointCollection(Arrays.asList(endpoint1, endpoint3)));
 
         assertEquals(2, survivingEndpointClients.size());
-        assertTrue(survivingEndpointClients.contains(endpointClient1));
-        assertTrue(survivingEndpointClients.contains(endpointClient3));
+        assertTrue(survivingEndpointClients.stream().anyMatch(endpointClient -> endpointClient.endpoint().getAddress().equals(endpoint1.getAddress())));
+        assertTrue(survivingEndpointClients.stream().anyMatch(endpointClient -> endpointClient.endpoint().getAddress().equals(endpoint3.getAddress())));
     }
 }

@@ -1,0 +1,18 @@
+<Configuration>
+    <Appenders>
+        <Lambda name="Lambda">
+            <PatternLayout>
+                <pattern>%X{AWSRequestId} %-5p %c{1} - %m%n</pattern>
+            </PatternLayout>
+        </Lambda>
+    </Appenders>
+    <Loggers>
+        <Root level="INFO">
+            <AppenderRef ref="Lambda"/>
+        </Root>
+        <Logger name="software.amazon.awssdk" level="INFO" />
+        <Logger name="software.amazon.awssdk.request" level="INFO" />
+        <Logger name="software.amazon.neptune" level="DEBUG" />
+        <Logger name="org.apache.tinkerpop.gremlin.driver" level="DEBUG" />
+    </Loggers>
+</Configuration>

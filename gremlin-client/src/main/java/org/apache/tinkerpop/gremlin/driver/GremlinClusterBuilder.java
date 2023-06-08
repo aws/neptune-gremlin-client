@@ -74,26 +74,27 @@ public class GremlinClusterBuilder {
     private EndpointFilter endpointFilter;
     private HandshakeInterceptor interceptor = HandshakeInterceptor.NO_OP;
 
-    private TopologyAwareBuilderConfigurator configurator = new TopologyAwareBuilderConfigurator() {
-        @Override
-        public void apply(Cluster.Builder builder, EndpointCollection endpoints) {
-            builder.handshakeInterceptor(interceptor);
-            if (endpoints != null && !endpoints.isEmpty()) {
-                for (Endpoint endpoint : endpoints) {
-                    builder.addContactPoint(endpoint.getAddress());
-                }
+    private EndpointSelectionStrategy endpointSelectionStrategy;
+
+    private TopologyAwareBuilderConfigurator configurator = (builder, endpoints) -> {
+        builder.handshakeInterceptor(interceptor);
+        if (endpoints != null && !endpoints.isEmpty()) {
+            for (Endpoint endpoint : endpoints) {
+                builder.addContactPoint(endpoint.getAddress());
             }
         }
     };
 
     private GremlinClusterBuilder() {
     }
-
+    public GremlinClusterBuilder endpointSelectionStrategy(EndpointSelectionStrategy endpointSelectionStrategy){
+        this.endpointSelectionStrategy = endpointSelectionStrategy;
+        return this;
+    }
     public GremlinClusterBuilder topologyAwareBuilderConfigurator(TopologyAwareBuilderConfigurator configurator){
         this.configurator = configurator;
         return this;
     }
-
 
     /**
      * Number of millis to wait between each attempt to acquire a connection.
@@ -597,6 +598,10 @@ public class GremlinClusterBuilder {
                 this.endpointFilter :
                 EndpointFilter.NULL_ENDPOINT_FILTER;
 
+        EndpointSelectionStrategy endpointSelectionStrategy = this.endpointSelectionStrategy != null ?
+                this.endpointSelectionStrategy :
+                new DefaultEndpointSelectionStrategy();
+
         for (Endpoint endpoint : endpoints) {
             if (endpointFilter.approveEndpoint(endpoint).isApproved()) {
                 filteredEndpoints.add(endpoint);
@@ -604,8 +609,8 @@ public class GremlinClusterBuilder {
         }
 
         EndpointStrategies endpointStrategies = new EndpointStrategies(
-                endpointFilter
-        );
+                endpointFilter,
+                endpointSelectionStrategy);
 
         AcquireConnectionConfig acquireConnectionConfig = new AcquireConnectionConfig(
                 maxWaitForConnection,

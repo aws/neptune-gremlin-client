@@ -14,12 +14,26 @@ package org.apache.tinkerpop.gremlin.driver;
 
 class EndpointStrategies {
     private final EndpointFilter endpointFilter;
+    private final EndpointSelectionStrategy endpointSelectionStrategy;
 
-    EndpointStrategies(EndpointFilter endpointFilter) {
+    EndpointStrategies(EndpointFilter endpointFilter, EndpointSelectionStrategy endpointSelectionStrategy) {
         this.endpointFilter = endpointFilter;
+        this.endpointSelectionStrategy = endpointSelectionStrategy;
     }
 
     public EndpointFilter endpointFilter() {
         return endpointFilter;
+    }
+
+    public EndpointSelectionStrategy endpointSelectionStrategy() {
+        return endpointSelectionStrategy;
+    }
+
+    @Override
+    public String toString() {
+        return "EndpointStrategies{" +
+                "endpointFilter=" + endpointFilter.getClass().getSimpleName() +
+                ", endpointSelectionStrategy=" + endpointSelectionStrategy.getClass().getSimpleName() +
+                '}';
     }
 }

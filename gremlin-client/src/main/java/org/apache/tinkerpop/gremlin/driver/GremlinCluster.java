@@ -79,7 +79,9 @@ public class GremlinCluster implements AutoCloseable {
             endpointClientList.add(new EndpointClient(endpoint, client));
         }
 
-        EndpointClientCollection endpointClientCollection = new EndpointClientCollection(endpointClientList);
+        EndpointClientCollection endpointClientCollection = new EndpointClientCollection(
+                endpointClientList,
+                endpointStrategies.endpointSelectionStrategy());
 
         clientClusterCollections.add(clientClusterCollection);
 
@@ -88,7 +90,6 @@ public class GremlinCluster implements AutoCloseable {
                 settings,
                 endpointClientCollection,
                 clientClusterCollection,
-                clusterFactory,
                 endpointStrategies,
                 acquireConnectionConfig
         );

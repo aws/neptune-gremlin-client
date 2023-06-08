@@ -12,18 +12,17 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import java.util.Map;
+import org.apache.tinkerpop.gremlin.driver.message.RequestMessage;
 
-public interface Endpoint {
-    String getAddress();
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
-    boolean isAvailable();
+class DefaultEndpointSelectionStrategy implements EndpointSelectionStrategy {
 
-    Map<String, String> getAnnotations();
+    private final AtomicLong index = new AtomicLong(0);
 
-    Map<String, Double> getMetrics();
-
-    void setAnnotation(String key, String value);
-
-    void setMetric(String key, Double value);
+    @Override
+    public EndpointClient select(RequestMessage msg, List<EndpointClient> endpointClients) {
+        return endpointClients.get((int) (index.getAndIncrement() % endpointClients.size()));
+    }
 }

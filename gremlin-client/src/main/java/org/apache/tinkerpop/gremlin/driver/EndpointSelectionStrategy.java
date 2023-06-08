@@ -12,6 +12,14 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-public interface ChooseEndpointStrategy {
-    EndpointClient choose(EndpointClientCollection clientHolders);
+import org.apache.tinkerpop.gremlin.driver.message.RequestMessage;
+
+import java.util.List;
+
+public interface EndpointSelectionStrategy {
+    EndpointClient select(RequestMessage msg, List<EndpointClient> endpointClients);
+
+    default List<EndpointClient> init(List<EndpointClient> endpointClients){
+        return endpointClients;
+    };
 }

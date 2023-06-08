@@ -189,4 +189,43 @@ class GetEndpointsFromLambdaProxy implements ClusterEndpointsFetchStrategy, Clus
 
         return builder.build();
     }
+
+    public static class Builder {
+
+        private String lambdaName;
+        private String region;
+        private String iamProfile = IamAuthConfig.DEFAULT_PROFILE;
+        private AWSCredentialsProvider credentials;
+        private ClientConfiguration clientConfiguration;
+
+        public Builder withLambdaName(String lambdaName) {
+            this.lambdaName = lambdaName;
+            return this;
+        }
+
+        public Builder withRegion(String region) {
+            this.region = region;
+            return this;
+        }
+
+        public Builder withIamProfile(String iamProfile) {
+            this.iamProfile = iamProfile;
+            return this;
+        }
+
+        public Builder withCredentials(AWSCredentialsProvider credentials) {
+            this.credentials = credentials;
+            return this;
+        }
+
+        public Builder withClientConfiguration(ClientConfiguration clientConfiguration) {
+            this.clientConfiguration = clientConfiguration;
+            return this;
+        }
+
+        public ClusterEndpointsRefreshAgent build(){
+            GetEndpointsFromLambdaProxy strategy = new GetEndpointsFromLambdaProxy(lambdaName, region, iamProfile, credentials, clientConfiguration);
+            return new ClusterEndpointsRefreshAgent(strategy);
+        }
+    }
 }

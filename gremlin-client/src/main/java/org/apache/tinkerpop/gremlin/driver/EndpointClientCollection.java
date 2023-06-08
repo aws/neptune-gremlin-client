@@ -17,7 +17,10 @@ import org.apache.tinkerpop.gremlin.driver.message.RequestMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -26,25 +29,23 @@ import static org.apache.tinkerpop.gremlin.driver.ApprovalResult.REJECTED_REASON
 
 class EndpointClientCollection implements Iterable<EndpointClient> {
     private final List<EndpointClient> endpointClients;
+    private final List<EndpointClient> selectableEndpointClients;
     private final EndpointCollection rejectedEndpoints;
+    private final EndpointSelectionStrategy endpointSelectionStrategy;
 
     private static final Logger logger = LoggerFactory.getLogger(EndpointClientCollection.class);
 
-    EndpointClientCollection() {
-        this(new EndpointCollection());
+    EndpointClientCollection(List<EndpointClient> endpointClients, EndpointSelectionStrategy endpointSelectionStrategy) {
+        this(endpointClients, new EndpointCollection(), endpointSelectionStrategy);
     }
 
-    EndpointClientCollection(EndpointCollection rejectedEndpoints) {
-        this(new ArrayList<>(), rejectedEndpoints);
-    }
-
-    EndpointClientCollection(List<EndpointClient> endpointClients) {
-        this(endpointClients, new EndpointCollection());
-    }
-
-    EndpointClientCollection(List<EndpointClient> endpointClients, EndpointCollection rejectedEndpoints) {
+    EndpointClientCollection(List<EndpointClient> endpointClients,
+                             EndpointCollection rejectedEndpoints,
+                             EndpointSelectionStrategy endpointSelectionStrategy) {
         this.rejectedEndpoints = rejectedEndpoints;
         this.endpointClients = endpointClients;
+        this.endpointSelectionStrategy = endpointSelectionStrategy;
+        this.selectableEndpointClients = endpointSelectionStrategy.init(endpointClients);
     }
 
     public List<EndpointClient> getSurvivingEndpointClients(EndpointCollection acceptedEndpoints) {
@@ -53,15 +54,15 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
             Endpoint endpoint = endpointClient.endpoint();
             if (acceptedEndpoints.containsEndpoint(endpoint)) {
                 logger.info("Retaining client for {}", endpoint.getAddress());
-                results.add(endpointClient);
+                results.add(new EndpointClient(acceptedEndpoints.get(endpoint.getAddress()), endpointClient.client()));
             }
         }
         return results;
     }
 
-    public Connection chooseConnection(RequestMessage msg, ChooseEndpointStrategy strategy) throws TimeoutException {
+    public Connection chooseConnection(RequestMessage msg) throws TimeoutException {
 
-        EndpointClient endpointClient = strategy.choose(this);
+        EndpointClient endpointClient = endpointSelectionStrategy.select(msg, selectableEndpointClients);
 
         String address = endpointClient.endpoint().getAddress();
         try {
@@ -84,7 +85,7 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
         }
     }
 
-    public EndpointClient get(int index){
+    public EndpointClient get(int index) {
         return endpointClients.get(index);
     }
 
@@ -105,7 +106,7 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
         return endpointClients.stream();
     }
 
-    public EndpointCollection endpoints(){
+    public EndpointCollection endpoints() {
         List<Endpoint> endpoints = endpointClients.stream().map(e -> e.endpoint()).collect(Collectors.toList());
         return new EndpointCollection(endpoints);
     }
