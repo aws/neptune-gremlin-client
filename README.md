@@ -193,7 +193,7 @@ If you are using the Neptune Gremlin Client in an AWS Lambda function, consider 
 
 The `ClusterEndpointsRefreshAgent` allows you to schedule endpoint updates to a `GremlinClient`. The agent can be configured to periodically discover the database cluster's current topology, select a set of endpoints using an `EndpointsSelector`, and update a client.
 
-A `ClusterEndpointsRefreshAgent` can be configured to get the database cluster's topology directly from the [Neptune Management API](https://docs.aws.amazon.com/neptune/latest/userguide/api.html), or from an AWS Lambda proxy function, which fetches and caches the cluster topology from the Management API on behalf of multiple clients. Unless you have a very small number of client instances (1-5) in your application, we recommend using a Lambda proxy to get the cluster toplogy. This reduces the risk of the Management API throttling requests from many clients.
+A `ClusterEndpointsRefreshAgent` can be configured to get the database cluster's topology directly from the [Neptune Management API](https://docs.aws.amazon.com/neptune/latest/userguide/api.html), or from an AWS Lambda proxy function, which fetches and caches the cluster topology from the Management API on behalf of multiple clients. **Unless you have a very small number of client instances (1-5) in your application, you should use a Lambda proxy to get the cluster toplogy.** This reduces the risk of the Management API throttling requests from many clients.
 
 ### Using an AWS Lambda proxy to retrieve cluster topology
 
