@@ -26,6 +26,7 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Scanner;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -79,6 +80,12 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
             if (!param.isEmpty()) {
                 endpointsType = EndpointsType.valueOf(param);
             }
+        }
+
+        try {
+            refreshAgent.awake();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException("Failed to awake refresh agent", e);
         }
 
         if (endpointsType != null) {
