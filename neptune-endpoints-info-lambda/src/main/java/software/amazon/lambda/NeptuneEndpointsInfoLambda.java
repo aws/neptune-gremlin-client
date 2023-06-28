@@ -58,7 +58,10 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
         System.out.println(String.format("suspendedEndpoints: %s", this.suspendedEndpoints));
 
         refreshAgent.startPollingNeptuneAPI(
-                (OnNewClusterMetadata) metadata -> neptuneClusterMetadata.set(metadata),
+                (OnNewClusterMetadata) metadata -> {
+                    neptuneClusterMetadata.set(metadata);
+                    System.out.println("Refreshed cluster metadata");
+                },
                 pollingIntervalSeconds,
                 TimeUnit.SECONDS);
     }
