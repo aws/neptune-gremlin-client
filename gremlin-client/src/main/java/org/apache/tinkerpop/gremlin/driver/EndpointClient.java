@@ -43,6 +43,10 @@ class EndpointClient {
         this.client = client;
     }
 
+    public boolean isAvailable() {
+        return !client.getCluster().availableHosts().isEmpty();
+    }
+
     public Endpoint endpoint() {
         return endpoint;
     }

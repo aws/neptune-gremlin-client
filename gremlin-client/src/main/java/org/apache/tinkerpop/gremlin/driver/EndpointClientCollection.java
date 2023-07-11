@@ -63,6 +63,11 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
 
         EndpointClient endpointClient = strategy.choose(this);
 
+        if (!endpointClient.isAvailable()){
+            logger.debug("No connections available for {}", endpointClient.endpoint().getAddress());
+            return null;
+        }
+
         String address = endpointClient.endpoint().getAddress();
         try {
             Connection connection = endpointClient.client().chooseConnection(msg);
