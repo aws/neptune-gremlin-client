@@ -26,6 +26,7 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Scanner;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -58,7 +59,10 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
         System.out.println(String.format("suspendedEndpoints: %s", this.suspendedEndpoints));
 
         refreshAgent.startPollingNeptuneAPI(
-                (OnNewClusterMetadata) metadata -> neptuneClusterMetadata.set(metadata),
+                (OnNewClusterMetadata) metadata -> {
+                    neptuneClusterMetadata.set(metadata);
+                    System.out.println("Refreshed cluster metadata");
+                },
                 pollingIntervalSeconds,
                 TimeUnit.SECONDS);
     }
@@ -76,6 +80,12 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
             if (!param.isEmpty()) {
                 endpointsType = EndpointsType.valueOf(param);
             }
+        }
+
+        try {
+            refreshAgent.awake();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException("Failed to awake refresh agent", e);
         }
 
         if (endpointsType != null) {

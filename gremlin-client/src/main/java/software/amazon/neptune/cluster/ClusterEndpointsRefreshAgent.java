@@ -22,7 +22,9 @@ import org.slf4j.LoggerFactory;
 import software.amazon.utils.RegionUtils;
 
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -175,5 +177,9 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
 
     public NeptuneClusterMetadata refreshClusterMetadata() {
         return endpointsFetchStrategy.clusterMetadataSupplier().refreshClusterMetadata();
+    }
+
+    public void awake() throws InterruptedException, ExecutionException {
+        this.scheduledExecutorService.submit(() -> {}).get();
     }
 }
