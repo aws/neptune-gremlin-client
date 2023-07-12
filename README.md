@@ -314,7 +314,7 @@ ClusterEndpointsRefreshAgent managementApiRefreshAgent =
 
 ### Using a ClusterEndpointsRefreshAgent in an AWS Lambda function 
 
-If you're building a serverless application that uses AWS Lambda functions to query Neptune, and you're using a Neptune Gremlin Client and a refresh agent in those Lambda functions, you must ensure the refresh agent wakes up and refershes ina tiely manner. Yu do this by calling the `awake()` method on the functions's `ClusterEndpointsRefreshAgent` instance (available from version 2.0.2 onwards). Do this with each function invocation in your handler. For example:
+If you're building a serverless application that uses AWS Lambda functions to query Neptune, and you're using a Neptune Gremlin Client and a refresh agent in those Lambda functions, you must ensure the refresh agent wakes up and refreshes in a timely manner. You do this by calling the `awake()` method on the functions's `ClusterEndpointsRefreshAgent` instance (available from version 2.0.2 onwards). Do this with each function invocation in the functions's handler. For example:
 
 ```
 public void handleRequest(InputStream input, OutputStream output, Context context) throws IOException {
