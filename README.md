@@ -75,6 +75,7 @@ cluster.close();
     - [Using a ClusterEndpointsRefreshAgent to query the Neptune Management API directly](#using-a-clusterendpointsrefreshagent-to-query-the-neptune-management-api-directly)
     - [ClusterEndpointsRefreshAgent credentials](#clusterendpointsrefreshagent-credentials)
       - [Accessing the Neptune Management API or Lambda proxy across accounts](#accessing-the-neptune-management-api-or-lambda-proxy-across-accounts)
+    - [Using a ClusterEndpointsRefreshAgent in an AWS Lambda function](#using-a-clusterendpointsrefreshagent-in-an-aws-lambda-function)
   - [EndpointsSelector](#endpointsselector)
     - [EndpointsType](#endpointstype)
   - [Connecting to an IAM auth enabled Neptune database](#connecting-to-an-iam-auth-enabled-neptune-database)
@@ -310,6 +311,25 @@ ClusterEndpointsRefreshAgent lambdaProxyRefreshAgent =
 ClusterEndpointsRefreshAgent managementApiRefreshAgent = 
         ClusterEndpointsRefreshAgent.managementApi("my-cluster-id", "eu-west-1", credentialsProvider);        
 ```
+
+### Using a ClusterEndpointsRefreshAgent in an AWS Lambda function 
+
+If you're building a serverless application that uses AWS Lambda functions to query Neptune, and you're using a Neptune Gremlin Client and a refresh agent in those Lambda functions, you must ensure the refresh agent wakes up and refershes ina tiely manner. Yu do this by calling the `awake()` method on the functions's `ClusterEndpointsRefreshAgent` instance (available from version 2.0.2 onwards). Do this with each function invocation in your handler. For example:
+
+```
+public void handleRequest(InputStream input, OutputStream output, Context context) throws IOException {
+
+        refreshAgent.awake();
+        
+        // Rest of the handler code
+}
+```
+
+The refresh agent schedules its refreshes on a background thread. A Lambda context – the container in which a function executes – survives across multiple invocations of the function, but inbetween invocations it is effectively asleep. If a refresh is scheduled to occur while the Lambda context is asleep, the refresh will not take place. As a result, changes in the Neptune cluster topology that might be expected to propogate to the Lambda proxy in several seconds (depending on the refresh interval you specify) can take several minutes to appear – appearing only when a refresh coincides with a period when the context is awake.
+
+By calling `awake()` at the beginning of every function invocation, you ensure that refreshes occur in a timely manner.
+
+
 
 #### Accessing the Neptune Management API or Lambda proxy across accounts
 
