@@ -273,7 +273,9 @@ refreshAgent.startPollingNeptuneAPI(
         
 ```
 
-When you use a `ClusterEndpointsRefreshAgent` to query the Neptune Management API directly, the identity under which you're running the agent must be authorized to perform `rds:DescribeDBClusters`,  `rds:DescribeDBInstances` and `rds:ListTagsForResource` for your Neptune cluster. See [ClusterEndpointsRefreshAgent credentials](#clusterendpointsrefreshagent-credentials) for details of supplying credentials to the refresh agent.
+When you use a `ClusterEndpointsRefreshAgent` to query the Neptune Management API directly, the identity under which you're running the agent must be authorized to perform `rds:DescribeDBClusters` for your Neptune cluster, and `rds:DescribeDBInstances` and `rds:ListTagsForResource` for `db:*`. See [ClusterEndpointsRefreshAgent credentials](#clusterendpointsrefreshagent-credentials) for details of supplying credentials to the refresh agent.
+
+(`rds:DescribeDBInstances` and `rds:ListTagsForResource` require permissions for `db:*` because a `db` resource type can't be restricted by cluster name. A `db` resource can be restricted by instance name, but this is not particularly useful here because the refresh agent is looking for instances that may have been created _after_ the IAM policy was formulated.)
 
 When the Neptune Management API experiences a high rate of requests, it starts throttling API calls. If you have a lot of clients frequently polling for endpoint information, your application can very quickly experience throttling (in the form of HTTP 400 throttling exceptions).
 
@@ -325,7 +327,7 @@ public void handleRequest(InputStream input, OutputStream output, Context contex
 }
 ```
 
-The refresh agent schedules its refreshes on a background thread. A Lambda context – the container in which a function executes – survives across multiple invocations of the function, but inbetween invocations it is effectively asleep. If a refresh is scheduled to occur while the Lambda context is asleep, the refresh will not take place. As a result, changes in the Neptune cluster topology that might be expected to propogate to the Lambda proxy in several seconds (depending on the refresh interval you specify) can take several minutes to appear – appearing only when a refresh coincides with a period when the context is awake.
+The refresh agent schedules its refreshes on a background thread. A Lambda context – the container in which a function executes – survives across multiple invocations of the function, but in between invocations it is effectively asleep. If a refresh is scheduled to occur while the Lambda context is asleep, the refresh will not take place. As a result, changes in the Neptune cluster topology that might be expected to propogate to the Lambda proxy in several seconds (depending on the refresh interval you specify) can take several minutes to appear – appearing only when a refresh coincides with a period when the context is awake.
 
 By calling `awake()` at the beginning of every function invocation, you ensure that refreshes occur in a timely manner.
 
@@ -1151,7 +1153,7 @@ The demo includes several sample scenarios. To run them, compile the `gremlin-cl
 
 All of the demos use a `ClusterEndpointsRefreshAgent` to get the database cluster topology and refresh the endpoints in a `GremlinClient`. If you supply a `--cluster-id` parameter, the refresh agent will [query the Neptune Management API directly](#using-a-clusterendpointsrefreshagent-to-query-the-neptune-management-api-directly). If you supply a `--lambda-proxy` name instead, the refresh agent will [query an AWS Lambda proxy](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology) for endpoint information (you will need to [install a Lambda proxy first](#installing-the-neptune-endpoints-info-aws-lambda-function)).
 
-If you use a `--cluster-id` parameter, the identity under which you're running the demo must be authorized to perform `rds:DescribeDBClusters`,  `rds:DescribeDBInstances` and `rds:ListTagsForResource` for your Neptune cluster.
+If you use a `--cluster-id` parameter, the identity under which you're running the demo must be authorized to perform `rds:DescribeDBClusters` for your Neptune cluster, and `rds:DescribeDBInstances` and `rds:ListTagsForResource` for `db:*`.
 
 If you use a `--lambda-proxy` parameter, the identity under which you're running the demo must be authorized to perform `lambda:InvokeFunction` for the proxy Lambda function. 
 
