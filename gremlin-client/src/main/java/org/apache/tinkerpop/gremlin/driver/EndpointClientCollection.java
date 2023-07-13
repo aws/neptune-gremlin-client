@@ -18,10 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -30,8 +27,8 @@ import static org.apache.tinkerpop.gremlin.driver.ApprovalResult.REJECTED_REASON
 class EndpointClientCollection implements Iterable<EndpointClient> {
     private final List<EndpointClient> endpointClients;
     private final EndpointCollection rejectedEndpoints;
-    private final AtomicReference<Map<String, EndpointClientMetrics>> metrics;
-
+    private final Map<String, EndpointConnectionMetrics> connectionMetrics;
+    private final RequestMetrics requestMetrics;
     private final long startMillis = System.currentTimeMillis();
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -53,16 +50,26 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
     EndpointClientCollection(List<EndpointClient> endpointClients, EndpointCollection rejectedEndpoints) {
         this.rejectedEndpoints = rejectedEndpoints;
         this.endpointClients = endpointClients;
-        this.metrics = initMetrics(endpointClients);
+        this.connectionMetrics = initMetrics(endpointClients);
+        this.requestMetrics = initRequestMetrics(endpointClients);
     }
 
-    private AtomicReference<Map<String, EndpointClientMetrics>> initMetrics(List<EndpointClient> endpointClients) {
-        Map<String, EndpointClientMetrics> endpointClientMetrics = new HashMap<>();
+    private RequestMetrics initRequestMetrics(List<EndpointClient> endpointClients) {
+        Map<String, EndpointRequestMetrics> requestMetrics = new HashMap<>();
         for (EndpointClient endpointClient : endpointClients) {
             String address = endpointClient.endpoint().getAddress();
-            endpointClientMetrics.put(address, new EndpointClientMetrics(address));
+            requestMetrics.put(address, new EndpointRequestMetrics(address));
         }
-        return new AtomicReference<>(endpointClientMetrics);
+        return new RequestMetrics(requestMetrics);
+    }
+
+    private Map<String, EndpointConnectionMetrics> initMetrics(List<EndpointClient> endpointClients) {
+        Map<String, EndpointConnectionMetrics> endpointClientMetrics = new HashMap<>();
+        for (EndpointClient endpointClient : endpointClients) {
+            String address = endpointClient.endpoint().getAddress();
+            endpointClientMetrics.put(address, new EndpointConnectionMetrics(address));
+        }
+        return endpointClientMetrics;
     }
 
     public List<EndpointClient> getSurvivingEndpointClients(EndpointCollection acceptedEndpoints) {
@@ -79,14 +86,20 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
 
     public Connection chooseConnection(RequestMessage msg, ChooseEndpointStrategy strategy) throws TimeoutException {
 
+        UUID traceId = msg.getRequestId();
+
         long startMillis = System.currentTimeMillis();
 
         EndpointClient endpointClient = strategy.choose(this);
         String address = endpointClient.endpoint().getAddress();
 
-        if (!endpointClient.isAvailable()){
+        if (!endpointClient.isAvailable()) {
             logger.debug("No connections available for {}", address);
-            executorService.submit(() -> metrics.get().get(address).unavailable(startMillis));
+            try {
+                executorService.submit(() -> connectionMetrics.get(address).unavailable(startMillis));
+            } catch (RejectedExecutionException e) {
+                // Do nothing
+            }
             return null;
         }
 
@@ -94,28 +107,57 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
             Connection connection = endpointClient.client().chooseConnection(msg);
             if (connection.isClosing()) {
                 logger.debug("Connection is closing: {}", address);
-                executorService.submit(() -> metrics.get().get(address).closing(startMillis));
+                try {
+                    executorService.submit(() -> connectionMetrics.get(address).closing(startMillis));
+                } catch (RejectedExecutionException e) {
+                    // Do nothing
+                }
                 return null;
             }
             if (connection.isDead()) {
                 logger.debug("Connection is dead: {}", address);
-                executorService.submit(() -> metrics.get().get(address).dead(startMillis));
+                try {
+                    executorService.submit(() -> connectionMetrics.get(address).dead(startMillis));
+                } catch (RejectedExecutionException e) {
+                    // Do nothing
+                }
                 return null;
             }
-            executorService.submit(() -> metrics.get().get(address).succeeded(startMillis));
+            try {
+                executorService.submit(() -> {
+                    try {
+                        if (connectionMetrics.containsKey(address)) {
+                            connectionMetrics.get(address).succeeded(startMillis);
+                        }
+                        requestMetrics.registerAddressForTraceId(address, traceId);
+                    } catch (Exception e) {
+                        logger.error("Error while submitting metrics", e);
+                    }
+                });
+            } catch (RejectedExecutionException e) {
+                // Do nothing
+            }
             return connection;
         } catch (NullPointerException e) {
             logger.debug("NullPointerException: {}", address, e);
-            executorService.submit(() -> metrics.get().get(address).npe(startMillis));
+            try {
+                executorService.submit(() -> connectionMetrics.get(address).npe(startMillis));
+            } catch (RejectedExecutionException ex) {
+                // Do nothing
+            }
             return null;
         } catch (NoHostAvailableException e) {
             logger.debug("No connection available: {}", address, e);
-            executorService.submit(() -> metrics.get().get(address).nha(startMillis));
+            try {
+                executorService.submit(() -> connectionMetrics.get(address).nha(startMillis));
+            } catch (RejectedExecutionException ex) {
+                // Do nothing
+            }
             return null;
         }
     }
 
-    public EndpointClient get(int index){
+    public EndpointClient get(int index) {
         return endpointClients.get(index);
     }
 
@@ -136,7 +178,7 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
         return endpointClients.stream();
     }
 
-    public EndpointCollection endpoints(){
+    public EndpointCollection endpoints() {
         List<Endpoint> endpoints = endpointClients.stream()
                 .map(EndpointClient::endpoint)
                 .collect(Collectors.toList());
@@ -153,20 +195,50 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
                 .collect(Collectors.toSet());
     }
 
-    public void close(){
-        executorService.shutdownNow();
-        Map<String, EndpointClientMetrics> endpointClientMetrics = metrics.get();
-
-        long totalConnectionAttempts = 0L;
-        for (EndpointClientMetrics clientMetrics : endpointClientMetrics.values()) {
-            totalConnectionAttempts += clientMetrics.total();
+    public void close() {
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            logger.error("Interrupted while shutting down EndpointClientCollection", e);
         }
 
+        Map<String, EndpointRequestMetrics> endpointRequestMetrics = requestMetrics.endpointRequestMetrics();
+
+        long totalConnectionAttempts = 0;
+        for (EndpointConnectionMetrics cm : connectionMetrics.values()) {
+            totalConnectionAttempts += cm.total();
+        }
+
+        long totalRequests = 0;
+        for (EndpointRequestMetrics rm : endpointRequestMetrics.values()) {
+            totalRequests += rm.count();
+        }
+        for (Map.Entry<String, EndpointRequestMetrics> rm : endpointRequestMetrics.entrySet()) {
+            totalRequests += rm.getValue().count();
+        }
+
+
+        long duration = System.currentTimeMillis() - startMillis;
+
         logger.info("Connection metrics: [duration: {}ms, totalConnectionAttempts:{}, endpoints: [{}]]",
-                System.currentTimeMillis() - startMillis,
+                duration,
                 totalConnectionAttempts,
-                endpointClientMetrics.values().stream()
-                        .map(EndpointClientMetrics::toString)
+                connectionMetrics.values().stream()
+                        .map(EndpointConnectionMetrics::toString)
                         .collect(Collectors.joining(", ")));
+
+        logger.info("Request metrics: [duration: {}ms, totalRequests:{}, endpoints: [{}]]",
+                duration,
+                totalRequests,
+                endpointRequestMetrics.values().stream()
+                        .map(Object::toString)
+                        .collect(Collectors.joining(", ")));
+    }
+
+    public void registerDurationForTraceId(UUID traceId, long durationMillis) {
+        executorService.submit(() -> {
+            requestMetrics.registerDurationForTraceId(traceId, durationMillis);
+        });
     }
 }

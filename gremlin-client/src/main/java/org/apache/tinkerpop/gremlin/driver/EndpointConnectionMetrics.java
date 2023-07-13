@@ -1,18 +1,18 @@
 package org.apache.tinkerpop.gremlin.driver;
 
-class EndpointClientMetrics {
+class EndpointConnectionMetrics {
     private final String address;
-    private long succeeded = 0;
-    private long unavailable = 0;
-    private long closing = 0;
-    private long dead = 0;
-    private long npe = 0;
-    private long nha = 0;
-    private long minMillis = Long.MAX_VALUE;
-    private long maxMillis = 0;
-    private long totalMillis;
+    private volatile long succeeded = 0;
+    private volatile long unavailable = 0;
+    private volatile long closing = 0;
+    private volatile long dead = 0;
+    private volatile long npe = 0;
+    private volatile long nha = 0;
+    private volatile long minMillis = Long.MAX_VALUE;
+    private volatile long maxMillis = 0;
+    private volatile long totalMillis;
 
-    EndpointClientMetrics(String address) {
+    EndpointConnectionMetrics(String address) {
         this.address = address;
     }
 

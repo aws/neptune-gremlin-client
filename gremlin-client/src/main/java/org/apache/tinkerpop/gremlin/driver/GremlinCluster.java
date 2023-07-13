@@ -71,15 +71,31 @@ public class GremlinCluster implements AutoCloseable {
         Cluster parentCluster = clusterFactory.createCluster(null);
 
         ClientClusterCollection clientClusterCollection = new ClientClusterCollection(clusterFactory, parentCluster);
-        List<EndpointClient> endpointClientList = new ArrayList<>();
 
-        for (Endpoint endpoint : endpoints) {
-            Cluster cluster = clientClusterCollection.createClusterForEndpoint(endpoint);
-            Client client = cluster.connect().init();
-            endpointClientList.add(new EndpointClient(endpoint, client));
-        }
 
-        EndpointClientCollection endpointClientCollection = new EndpointClientCollection(endpointClientList);
+
+
+
+        Map<Endpoint, Cluster> clustersForEndpoints = clientClusterCollection.createClustersForEndpoints(new EndpointCollection(endpoints));
+        List<EndpointClient> newEndpointClients = EndpointClient.create(clustersForEndpoints);
+        EndpointClientCollection endpointClientCollection = new EndpointClientCollection(newEndpointClients);
+
+
+
+
+
+
+
+
+//        List<EndpointClient> endpointClientList = new ArrayList<>();
+//
+//        for (Endpoint endpoint : endpoints) {
+//            Cluster cluster = clientClusterCollection.createClusterForEndpoint(endpoint);
+//            Client client = cluster.connect().init();
+//            endpointClientList.add(new EndpointClient(endpoint, client));
+//        }
+//
+//        EndpointClientCollection endpointClientCollection = new EndpointClientCollection(endpointClientList);
 
         clientClusterCollections.add(clientClusterCollection);
 
@@ -88,7 +104,6 @@ public class GremlinCluster implements AutoCloseable {
                 settings,
                 endpointClientCollection,
                 clientClusterCollection,
-                clusterFactory,
                 endpointStrategies,
                 acquireConnectionConfig
         );

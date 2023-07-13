@@ -12,11 +12,18 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
+import org.apache.tinkerpop.gremlin.process.traversal.Bytecode;
+import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 class EndpointClient {
 
@@ -30,6 +37,7 @@ class EndpointClient {
             Cluster cluster = entry.getValue();
             Endpoint endpoint = entry.getKey();
             Client client = clientFactory.apply(cluster);
+
             results.add(new EndpointClient(endpoint, client));
         }
         return results;
@@ -62,4 +70,5 @@ class EndpointClient {
     public CompletableFuture<Void> closeClientAsync(){
         return client.closeAsync();
     }
+
 }

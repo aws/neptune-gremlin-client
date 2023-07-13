@@ -14,15 +14,17 @@ package org.apache.tinkerpop.gremlin.driver;
 
 import org.apache.tinkerpop.gremlin.driver.exception.ConnectionException;
 import org.apache.tinkerpop.gremlin.driver.message.RequestMessage;
+import org.apache.tinkerpop.gremlin.process.traversal.Bytecode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.utils.CollectionUtils;
 
 import java.net.URI;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,8 +39,6 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
     private final AtomicReference<CompletableFuture<Void>> closing = new AtomicReference<>(null);
     private final ConnectionAttemptManager connectionAttemptManager;
     private final ClientClusterCollection clientClusterCollection;
-    private final ClusterFactory clusterFactory;
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final EndpointStrategies endpointStrategies;
     private final AcquireConnectionConfig acquireConnectionConfig;
 
@@ -46,14 +46,12 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
                   Settings settings,
                   EndpointClientCollection endpointClientCollection,
                   ClientClusterCollection clientClusterCollection,
-                  ClusterFactory clusterFactory,
                   EndpointStrategies endpointStrategies,
                   AcquireConnectionConfig acquireConnectionConfig) {
         super(cluster, settings);
 
         this.endpointClientCollection.set(endpointClientCollection);
         this.clientClusterCollection = clientClusterCollection;
-        this.clusterFactory = clusterFactory;
         this.endpointStrategies = endpointStrategies;
         this.acquireConnectionConfig = acquireConnectionConfig;
         this.connectionAttemptManager = acquireConnectionConfig.createConnectionAttemptManager(this);
@@ -163,6 +161,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
         logger.debug("Connection: {} [{} ms]", connection.getConnectionInfo(), System.currentTimeMillis() - start);
 
+
         return connection;
     }
 
@@ -173,7 +172,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
     @Override
     public Client alias(final Map<String, String> aliases) {
-        return new GremlinAliasClusterClient(this, aliases, settings, clientClusterCollection);
+        return new GremlinAliasClusterClient(this, aliases, settings, clientClusterCollection, endpointClientCollection);
     }
 
     @Override
@@ -188,7 +187,6 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
             return closing.get();
 
         connectionAttemptManager.shutdownNow();
-        executorService.shutdownNow();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (EndpointClient endpointClient : endpointClientCollection.get()) {
@@ -233,11 +231,70 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
     public static class GremlinAliasClusterClient extends AliasClusteredClient {
 
-        private final ClientClusterCollection clientClusterCollection;
+        private static final Logger logger = LoggerFactory.getLogger(GremlinAliasClusterClient.class);
 
-        GremlinAliasClusterClient(Client client, Map<String, String> aliases, Settings settings, ClientClusterCollection clientClusterCollection) {
+        private final ClientClusterCollection clientClusterCollection;
+        private final AtomicReference<EndpointClientCollection> endpointClientCollection;
+
+        GremlinAliasClusterClient(Client client,
+                                  Map<String, String> aliases,
+                                  Settings settings,
+                                  ClientClusterCollection clientClusterCollection,
+                                  AtomicReference<EndpointClientCollection> endpointClientCollection) {
             super(client, aliases, settings);
             this.clientClusterCollection = clientClusterCollection;
+            this.endpointClientCollection = endpointClientCollection;
+        }
+
+        @Override
+        public CompletableFuture<ResultSet> submitAsync(Bytecode bytecode, RequestOptions options) {
+            long start = System.currentTimeMillis();
+            UUID traceId = options.getOverrideRequestId().isPresent() ? options.getOverrideRequestId().get() : UUID.randomUUID();
+            logger.trace("_traceId: {}", traceId);
+            RequestOptions.Builder newOptions = RequestOptions.build();
+            newOptions.overrideRequestId(traceId);
+
+
+
+            if (options.getAliases().isPresent()) {
+                Map<String, String> aliases = options.getAliases().get();
+                for (Map.Entry<String, String> alias : aliases.entrySet()) {
+                    newOptions.addAlias(alias.getKey(), alias.getValue());
+                }
+            }
+            if (options.getBatchSize().isPresent()) {
+                newOptions.batchSize(options.getBatchSize().get());
+            }
+
+            if (options.getTimeout().isPresent()) {
+                newOptions.timeout(options.getTimeout().get());
+            }
+            if (options.getLanguage().isPresent()) {
+                newOptions.language(options.getLanguage().get());
+            }
+            if (options.getUserAgent().isPresent()) {
+                newOptions.userAgent(options.getUserAgent().get());
+            }
+            if (options.getParameters().isPresent()) {
+                Map<String, Object> params = options.getParameters().get();
+                for (Map.Entry<String, Object> param : params.entrySet()) {
+                    newOptions.addParameter(param.getKey(), param.getValue());
+                }
+            }
+            CompletableFuture<ResultSet> future = super.submitAsync(bytecode, newOptions.create());
+
+            EndpointClientCollection endpointClients = endpointClientCollection.get();
+            if (endpointClients != null){
+                return future.whenComplete((results, throwable) -> {
+                    long durationMillis = System.currentTimeMillis() - start;
+                    logger.debug("Instrumented request: {}ms", durationMillis);
+                    endpointClients.registerDurationForTraceId(traceId, durationMillis);
+                });
+            } else {
+                return future;
+            }
+
+
         }
 
         @Override
