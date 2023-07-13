@@ -95,6 +95,8 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
         endpointClientCollection.set(newEndpointClientCollection);
         clientClusterCollection.removeClustersWithNoMatchingEndpoint(newEndpointClientCollection.endpoints());
+
+        currentEndpointClientCollection.close();
     }
 
     @Override

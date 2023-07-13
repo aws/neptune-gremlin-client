@@ -18,7 +18,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -27,6 +30,11 @@ import static org.apache.tinkerpop.gremlin.driver.ApprovalResult.REJECTED_REASON
 class EndpointClientCollection implements Iterable<EndpointClient> {
     private final List<EndpointClient> endpointClients;
     private final EndpointCollection rejectedEndpoints;
+    private final AtomicReference<Map<String, EndpointClientMetrics>> metrics;
+
+    private final long startMillis = System.currentTimeMillis();
+
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     private static final Logger logger = LoggerFactory.getLogger(EndpointClientCollection.class);
 
@@ -45,6 +53,16 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
     EndpointClientCollection(List<EndpointClient> endpointClients, EndpointCollection rejectedEndpoints) {
         this.rejectedEndpoints = rejectedEndpoints;
         this.endpointClients = endpointClients;
+        this.metrics = initMetrics(endpointClients);
+    }
+
+    private AtomicReference<Map<String, EndpointClientMetrics>> initMetrics(List<EndpointClient> endpointClients) {
+        Map<String, EndpointClientMetrics> endpointClientMetrics = new HashMap<>();
+        for (EndpointClient endpointClient : endpointClients) {
+            String address = endpointClient.endpoint().getAddress();
+            endpointClientMetrics.put(address, new EndpointClientMetrics(address));
+        }
+        return new AtomicReference<>(endpointClientMetrics);
     }
 
     public List<EndpointClient> getSurvivingEndpointClients(EndpointCollection acceptedEndpoints) {
@@ -61,30 +79,38 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
 
     public Connection chooseConnection(RequestMessage msg, ChooseEndpointStrategy strategy) throws TimeoutException {
 
+        long startMillis = System.currentTimeMillis();
+
         EndpointClient endpointClient = strategy.choose(this);
+        String address = endpointClient.endpoint().getAddress();
 
         if (!endpointClient.isAvailable()){
-            logger.debug("No connections available for {}", endpointClient.endpoint().getAddress());
+            logger.debug("No connections available for {}", address);
+            executorService.submit(() -> metrics.get().get(address).unavailable(startMillis));
             return null;
         }
 
-        String address = endpointClient.endpoint().getAddress();
         try {
             Connection connection = endpointClient.client().chooseConnection(msg);
             if (connection.isClosing()) {
                 logger.debug("Connection is closing: {}", address);
+                executorService.submit(() -> metrics.get().get(address).closing(startMillis));
                 return null;
             }
             if (connection.isDead()) {
                 logger.debug("Connection is dead: {}", address);
+                executorService.submit(() -> metrics.get().get(address).dead(startMillis));
                 return null;
             }
+            executorService.submit(() -> metrics.get().get(address).succeeded(startMillis));
             return connection;
         } catch (NullPointerException e) {
             logger.debug("NullPointerException: {}", address, e);
+            executorService.submit(() -> metrics.get().get(address).npe(startMillis));
             return null;
         } catch (NoHostAvailableException e) {
             logger.debug("No connection available: {}", address, e);
+            executorService.submit(() -> metrics.get().get(address).nha(startMillis));
             return null;
         }
     }
@@ -111,7 +137,9 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
     }
 
     public EndpointCollection endpoints(){
-        List<Endpoint> endpoints = endpointClients.stream().map(e -> e.endpoint()).collect(Collectors.toList());
+        List<Endpoint> endpoints = endpointClients.stream()
+                .map(EndpointClient::endpoint)
+                .collect(Collectors.toList());
         return new EndpointCollection(endpoints);
     }
 
@@ -123,5 +151,22 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
         return rejectedEndpoints.stream()
                 .map(e -> e.getAnnotations().getOrDefault(REJECTED_REASON_ANNOTATION, "unknown"))
                 .collect(Collectors.toSet());
+    }
+
+    public void close(){
+        executorService.shutdownNow();
+        Map<String, EndpointClientMetrics> endpointClientMetrics = metrics.get();
+
+        long totalConnectionAttempts = 0L;
+        for (EndpointClientMetrics clientMetrics : endpointClientMetrics.values()) {
+            totalConnectionAttempts += clientMetrics.total();
+        }
+
+        logger.info("Connection metrics: [duration: {}ms, totalConnectionAttempts:{}, endpoints: [{}]]",
+                System.currentTimeMillis() - startMillis,
+                totalConnectionAttempts,
+                endpointClientMetrics.values().stream()
+                        .map(EndpointClientMetrics::toString)
+                        .collect(Collectors.joining(", ")));
     }
 }
