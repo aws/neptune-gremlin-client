@@ -24,7 +24,6 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.joda.time.DateTime;
 
 import java.util.*;
 
@@ -44,7 +43,7 @@ class IamAuthConfig {
     private final String serviceRegion;
     private final String iamProfile;
     private final AWSCredentialsProvider credentials;
-    private final Random random = new Random(DateTime.now().getMillis());
+    private final Random random = new Random(System.currentTimeMillis());
 
     IamAuthConfig(Collection<String> endpoints,
                   int port,
