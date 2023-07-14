@@ -12,26 +12,19 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import org.apache.tinkerpop.gremlin.process.traversal.Bytecode;
-import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 class EndpointClient {
 
-    public static List<EndpointClient> create(Map<Endpoint, Cluster> endpointClusters){
+    public static List<EndpointClient> create(Map<Endpoint, Cluster> endpointClusters) {
         return create(endpointClusters, cluster -> cluster.connect().init());
     }
 
-    static List<EndpointClient> create(Map<Endpoint, Cluster> endpointClusters, Function<Cluster, Client> clientFactory){
+    static List<EndpointClient> create(Map<Endpoint, Cluster> endpointClusters, Function<Cluster, Client> clientFactory) {
         List<EndpointClient> results = new ArrayList<>();
         for (Map.Entry<Endpoint, Cluster> entry : endpointClusters.entrySet()) {
             Cluster cluster = entry.getValue();
@@ -63,11 +56,11 @@ class EndpointClient {
         return client;
     }
 
-    public void initClient(){
+    public void initClient() {
         client.init();
     }
 
-    public CompletableFuture<Void> closeClientAsync(){
+    public CompletableFuture<Void> closeClientAsync() {
         return client.closeAsync();
     }
 
