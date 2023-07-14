@@ -21,7 +21,9 @@ public class EndpointClientCollectionTest {
         EndpointClient endpointClient3 = new EndpointClient(endpoint3, mock(Client.class));
 
         EndpointClientCollection endpointClientCollection =
-                new EndpointClientCollection(Arrays.asList(endpointClient1, endpointClient2, endpointClient3));
+                new EndpointClientCollection(
+                        EndpointClientCollection.builder()
+                                .withEndpointClients(Arrays.asList(endpointClient1, endpointClient2, endpointClient3)));
 
         List<EndpointClient> survivingEndpointClients =
                 endpointClientCollection.getSurvivingEndpointClients(

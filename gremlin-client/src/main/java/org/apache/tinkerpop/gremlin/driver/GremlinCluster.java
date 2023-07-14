@@ -17,7 +17,10 @@ import org.slf4j.LoggerFactory;
 import software.amazon.utils.GitProperties;
 import software.amazon.utils.SoftwareVersion;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
@@ -34,19 +37,25 @@ public class GremlinCluster implements AutoCloseable {
     private final EndpointStrategies endpointStrategies;
     private final AcquireConnectionConfig acquireConnectionConfig;
 
+    private final MetricsConfig metricsConfig;
+
 
     public GremlinCluster(Collection<Endpoint> defaultEndpoints,
                           ClusterFactory clusterFactory,
                           EndpointStrategies endpointStrategies,
-                          AcquireConnectionConfig acquireConnectionConfig) {
+                          AcquireConnectionConfig acquireConnectionConfig,
+                          MetricsConfig metricsConfig) {
         logger.info("Version: {} {}", SoftwareVersion.FromResource, GitProperties.FromResource);
-        logger.info("Created GremlinCluster, defaultEndpoints: {}", defaultEndpoints.stream()
-                .map(Endpoint::getAddress)
-                .collect(Collectors.toList()) );
+        logger.info("Created GremlinCluster [defaultEndpoints: {}, enableMetrics: {}]",
+                defaultEndpoints.stream()
+                        .map(Endpoint::getAddress)
+                        .collect(Collectors.toList()),
+                metricsConfig.enableMetrics());
         this.defaultEndpoints = defaultEndpoints;
         this.clusterFactory = clusterFactory;
         this.endpointStrategies = endpointStrategies;
         this.acquireConnectionConfig = acquireConnectionConfig;
+        this.metricsConfig = metricsConfig;
     }
 
     public GremlinClient connect(List<String> addresses, Client.Settings settings) {
@@ -64,7 +73,7 @@ public class GremlinCluster implements AutoCloseable {
                 .map(Endpoint::getAddress)
                 .collect(Collectors.toList()));
 
-        if (endpoints.isEmpty()){
+        if (endpoints.isEmpty()) {
             throw new IllegalStateException("You must supply at least one endpoint");
         }
 
@@ -72,30 +81,12 @@ public class GremlinCluster implements AutoCloseable {
 
         ClientClusterCollection clientClusterCollection = new ClientClusterCollection(clusterFactory, parentCluster);
 
-
-
-
-
         Map<Endpoint, Cluster> clustersForEndpoints = clientClusterCollection.createClustersForEndpoints(new EndpointCollection(endpoints));
         List<EndpointClient> newEndpointClients = EndpointClient.create(clustersForEndpoints);
-        EndpointClientCollection endpointClientCollection = new EndpointClientCollection(newEndpointClients);
-
-
-
-
-
-
-
-
-//        List<EndpointClient> endpointClientList = new ArrayList<>();
-//
-//        for (Endpoint endpoint : endpoints) {
-//            Cluster cluster = clientClusterCollection.createClusterForEndpoint(endpoint);
-//            Client client = cluster.connect().init();
-//            endpointClientList.add(new EndpointClient(endpoint, client));
-//        }
-//
-//        EndpointClientCollection endpointClientCollection = new EndpointClientCollection(endpointClientList);
+        EndpointClientCollection endpointClientCollection = new EndpointClientCollection(
+                EndpointClientCollection.builder()
+                        .withEndpointClients(newEndpointClients)
+                        .setCollectMetrics(metricsConfig.enableMetrics()));
 
         clientClusterCollections.add(clientClusterCollection);
 
@@ -105,7 +96,8 @@ public class GremlinCluster implements AutoCloseable {
                 endpointClientCollection,
                 clientClusterCollection,
                 endpointStrategies,
-                acquireConnectionConfig
+                acquireConnectionConfig,
+                metricsConfig
         );
     }
 

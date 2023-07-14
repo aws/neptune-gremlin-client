@@ -1,34 +1,43 @@
 package org.apache.tinkerpop.gremlin.driver;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.Collection;
 
-class RequestMetrics {
+public class RequestMetrics {
+    private final long durationMillis;
+    private final long totalRequests;
+    private final int droppedRequests;
+    private final int skippedResponses;
+    private Collection<EndpointRequestMetrics> metrics;
 
-    public final Map<String, EndpointRequestMetrics> metrics;
-    public final Map<UUID, String> traceIds = new HashMap<>();
-
-    public RequestMetrics(Map<String, EndpointRequestMetrics> metrics) {
+    RequestMetrics(long durationMillis,
+                   long totalRequests,
+                   int droppedRequests,
+                   int skippedResponses,
+                   Collection<EndpointRequestMetrics> metrics) {
+        this.durationMillis = durationMillis;
+        this.totalRequests = totalRequests;
+        this.droppedRequests = droppedRequests;
+        this.skippedResponses = skippedResponses;
         this.metrics = metrics;
     }
 
-    public void registerAddressForTraceId(String address, UUID traceId) {
-        traceIds.put(traceId, address);
+    public long getDurationMillis() {
+        return durationMillis;
     }
 
-    public void registerDurationForTraceId(UUID traceId, long durationMillis) {
-        String address = traceIds.remove(traceId);
-        if (address != null) {
-            if (!metrics.containsKey(address)) {
-                metrics.put(address, new EndpointRequestMetrics(address));
-            }
-            metrics.get(address).update(durationMillis);
-        }
+    public long getTotalRequests() {
+        return totalRequests;
     }
 
-    public Map<String, EndpointRequestMetrics> endpointRequestMetrics() {
+    public int getDroppedRequests() {
+        return droppedRequests;
+    }
+
+    public int getSkippedResponses() {
+        return skippedResponses;
+    }
+
+    public Collection<EndpointRequestMetrics> getMetrics() {
         return metrics;
     }
-
 }

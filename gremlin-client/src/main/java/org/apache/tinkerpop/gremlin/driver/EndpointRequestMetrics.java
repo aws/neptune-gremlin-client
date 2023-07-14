@@ -4,10 +4,10 @@ public class EndpointRequestMetrics {
     private final long start = System.currentTimeMillis();
 
     private final String address;
-    private volatile long totalDurationMillis;
-    private volatile long minMillis = Long.MAX_VALUE;
-    private volatile long maxMillis = 0L;
-    private volatile long count;
+    private long totalDurationMillis;
+    private long minMillis = Long.MAX_VALUE;
+    private long maxMillis = 0L;
+    private long count;
 
     public EndpointRequestMetrics(String address) {
         this.address = address;
@@ -24,30 +24,42 @@ public class EndpointRequestMetrics {
         count++;
     }
 
-    public long count() {
+    public String getAddress() {
+        return address;
+    }
+
+    public long getCount() {
         return count;
     }
 
 
-    public double ratePerSecond() {
+    public double getRatePerSecond() {
 
         long duration = System.currentTimeMillis() - start;
         return (double) count / ((double) (duration) / 1000.00);
 
     }
 
-    public double averageLatencyMillis() {
+    public double getAverageLatencyMillis() {
         return (double) totalDurationMillis / (double) count;
+    }
+
+    public long getMinLatencyMillis() {
+        return minMillis;
+    }
+
+    public long getMaxLatencyMillis() {
+        return maxMillis;
     }
 
     @Override
     public String toString() {
         return String.format("%s [count: %s, ratePerSec: %.3f, minMillis: %s, maxMillis: %s, avgMillis: %.2f]",
-                address,
-                count,
-                ratePerSecond(),
-                minMillis,
-                maxMillis,
-                averageLatencyMillis());
+                getAddress(),
+                getCount(),
+                getRatePerSecond(),
+                getMinLatencyMillis(),
+                getMaxLatencyMillis(),
+                getAverageLatencyMillis());
     }
 }

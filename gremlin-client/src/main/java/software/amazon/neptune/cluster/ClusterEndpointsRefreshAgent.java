@@ -27,8 +27,29 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 public class ClusterEndpointsRefreshAgent implements AutoCloseable {
+
+    public static ClusterEndpointsRefreshAgent monitor(GremlinClient client,
+                                                       long delay,
+                                                       TimeUnit timeUnit){
+        return monitor(Collections.singletonList(client), delay, timeUnit);
+    }
+
+    public static ClusterEndpointsRefreshAgent monitor(Collection<GremlinClient> clients,
+                                                       long delay,
+                                                       TimeUnit timeUnit){
+        EndpointsSelector nullSelector = clusterMetadata -> {
+            throw new UnsupportedOperationException();
+        };
+        ClusterEndpointsRefreshAgent refreshAgent = new ClusterEndpointsRefreshAgent(new GetCurrentEndpointsFromGremlinClient());
+
+        refreshAgent.startPollingNeptuneAPI(clients.stream().map(c -> new RefreshTask(c, nullSelector)).collect(Collectors.toList()), delay, timeUnit);
+
+        return refreshAgent;
+    }
 
     public static ClusterEndpointsRefreshAgent lambdaProxy(String lambdaName) {
         return lambdaProxy(lambdaName, RegionUtils.getCurrentRegionName());
@@ -91,6 +112,8 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
     private final ClusterEndpointsFetchStrategy endpointsFetchStrategy;
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 
+    private AtomicBoolean isRunning = new AtomicBoolean(false);
+
     public ClusterEndpointsRefreshAgent(ClusterEndpointsFetchStrategy endpointsFetchStrategy) {
         this.endpointsFetchStrategy = endpointsFetchStrategy;
     }
@@ -114,16 +137,22 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
                                                                      long delay,
                                                                      TimeUnit timeUnit) {
 
+        boolean isAlreadyRunning = !isRunning.compareAndSet(false, true);
+
+        if (isAlreadyRunning){
+            throw new IllegalStateException("Refresh agent is already running");
+        }
+
         scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
-                Map<EndpointsSelector, GremlinClient> m = new HashMap<>();
+                Map<EndpointsSelector, GremlinClient> clientSelectors = new HashMap<>();
                 for (RefreshTask task : tasks) {
-                    m.put(task.selector(), task.client());
+                    clientSelectors.put(task.selector(), task.client());
                 }
-                Map<? extends EndpointsSelector, EndpointCollection> refreshResults = refreshEndpoints(m.keySet());
+                Map<? extends EndpointsSelector, EndpointCollection> refreshResults = refreshEndpoints(clientSelectors);
                 for (Map.Entry<? extends EndpointsSelector, EndpointCollection> entry : refreshResults.entrySet()) {
                     EndpointCollection endpoints = entry.getValue();
-                    GremlinClient client = m.get(entry.getKey());
+                    GremlinClient client = clientSelectors.get(entry.getKey());
                     logger.info("Refresh: [client: {}, endpoints: {}]", client.hashCode(), endpoints);
                     client.refreshEndpoints(endpoints);
                 }
@@ -159,27 +188,23 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
         stop();
     }
 
-    public Map<? extends EndpointsSelector, EndpointCollection> refreshEndpoints(Collection<EndpointsSelector> selectors) {
-        return endpointsFetchStrategy.getEndpoints(selectors, true);
-    }
-
-    public EndpointCollection refreshEndpoints(EndpointsSelector selector) {
-        return endpointsFetchStrategy.getEndpoints(Arrays.asList(selector), true).get(selector);
-    }
-
     public <T extends EndpointsSelector> EndpointCollection getEndpoints(T selector) {
-        return endpointsFetchStrategy.getEndpoints(Arrays.asList(selector), false).get(selector);
+        return endpointsFetchStrategy.getEndpoints(Collections.singletonList(selector), false).get(selector);
     }
 
     public NeptuneClusterMetadata getClusterMetadata() {
         return endpointsFetchStrategy.clusterMetadataSupplier().getClusterMetadata();
     }
 
-    public NeptuneClusterMetadata refreshClusterMetadata() {
-        return endpointsFetchStrategy.clusterMetadataSupplier().refreshClusterMetadata();
-    }
-
     public void awake() throws InterruptedException, ExecutionException {
         this.scheduledExecutorService.submit(() -> {}).get();
+    }
+
+    private Map<? extends  EndpointsSelector, EndpointCollection> refreshEndpoints(Map<EndpointsSelector, GremlinClient> clientSelectors){
+        return endpointsFetchStrategy.getEndpoints(clientSelectors, true);
+    }
+
+    private NeptuneClusterMetadata refreshClusterMetadata() {
+        return endpointsFetchStrategy.clusterMetadataSupplier().refreshClusterMetadata();
     }
 }

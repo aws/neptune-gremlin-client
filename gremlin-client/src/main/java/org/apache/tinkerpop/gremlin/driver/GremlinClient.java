@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -42,12 +44,17 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
     private final EndpointStrategies endpointStrategies;
     private final AcquireConnectionConfig acquireConnectionConfig;
 
+    private final MetricsConfig metricsConfig;
+
+    private final ExecutorService metricsExecutorService;
+
     GremlinClient(Cluster cluster,
                   Settings settings,
                   EndpointClientCollection endpointClientCollection,
                   ClientClusterCollection clientClusterCollection,
                   EndpointStrategies endpointStrategies,
-                  AcquireConnectionConfig acquireConnectionConfig) {
+                  AcquireConnectionConfig acquireConnectionConfig,
+                  MetricsConfig metricsConfig) {
         super(cluster, settings);
 
         this.endpointClientCollection.set(endpointClientCollection);
@@ -55,8 +62,18 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
         this.endpointStrategies = endpointStrategies;
         this.acquireConnectionConfig = acquireConnectionConfig;
         this.connectionAttemptManager = acquireConnectionConfig.createConnectionAttemptManager(this);
+        this.metricsConfig = metricsConfig;
+        this.metricsExecutorService = this.metricsConfig.enableMetrics() ? Executors.newSingleThreadExecutor() : null;
 
         logger.info("availableEndpointFilter: {}", endpointStrategies.endpointFilter());
+    }
+
+    /**
+     * Refreshes the client with its current set of endpoints.
+     * (Useful for triggering metrics for static cluster topologies.)
+     */
+    public synchronized void refreshEndpoints(){
+        refreshEndpoints(currentEndpoints());
     }
 
     /**
@@ -87,14 +104,22 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
         List<EndpointClient> newEndpointClients = EndpointClient.create(newEndpointClusters);
 
         EndpointClientCollection newEndpointClientCollection = new EndpointClientCollection(
-                CollectionUtils.join(survivingEndpointClients, newEndpointClients),
-                rejectedEndpoints
+                EndpointClientCollection.builder()
+                        .withEndpointClients(CollectionUtils.join(survivingEndpointClients, newEndpointClients))
+                        .withRejectedEndpoints(rejectedEndpoints)
+                        .setCollectMetrics(metricsConfig.enableMetrics())
         );
 
         endpointClientCollection.set(newEndpointClientCollection);
         clientClusterCollection.removeClustersWithNoMatchingEndpoint(newEndpointClientCollection.endpoints());
 
-        currentEndpointClientCollection.close();
+        currentEndpointClientCollection.close(
+                (connectionMetrics, requestMetrics) -> metricsExecutorService.submit(
+                        () -> metricsConfig.metricsHandlers().onMetricsPublished(connectionMetrics, requestMetrics)));
+    }
+
+    public EndpointCollection currentEndpoints(){
+        return endpointClientCollection.get().endpoints();
     }
 
     @Override
@@ -186,6 +211,9 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
         if (closing.get() != null)
             return closing.get();
 
+        if (metricsExecutorService != null){
+            metricsExecutorService.shutdownNow();
+        }
         connectionAttemptManager.shutdownNow();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -284,16 +312,15 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
             CompletableFuture<ResultSet> future = super.submitAsync(bytecode, newOptions.create());
 
             EndpointClientCollection endpointClients = endpointClientCollection.get();
+
             if (endpointClients != null){
                 return future.whenComplete((results, throwable) -> {
                     long durationMillis = System.currentTimeMillis() - start;
-                    logger.debug("Instrumented request: {}ms", durationMillis);
                     endpointClients.registerDurationForTraceId(traceId, durationMillis);
                 });
             } else {
                 return future;
             }
-
 
         }
 

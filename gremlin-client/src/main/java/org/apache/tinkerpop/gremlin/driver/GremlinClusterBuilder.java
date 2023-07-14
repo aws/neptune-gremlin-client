@@ -86,14 +86,28 @@ public class GremlinClusterBuilder {
         }
     };
 
+    private final MetricsHandlerCollection metricsHandlers = new MetricsHandlerCollection();
+
+    private boolean enableMetrics = false;
+
     private GremlinClusterBuilder() {
     }
+
+
 
     public GremlinClusterBuilder topologyAwareBuilderConfigurator(TopologyAwareBuilderConfigurator configurator){
         this.configurator = configurator;
         return this;
     }
+    public GremlinClusterBuilder addMetricsHandler(MetricsHandler handler){
+        this.metricsHandlers.addHandler(handler);
+        return this;
+    }
 
+    public GremlinClusterBuilder enableMetrics(boolean enableMetrics){
+        this.enableMetrics = enableMetrics;
+        return this;
+    }
 
     /**
      * Number of millis to wait between each attempt to acquire a connection.
@@ -614,6 +628,8 @@ public class GremlinClusterBuilder {
                 eagerRefreshBackoffMillis,
                 acquireConnectionBackoffMillis);
 
+        MetricsConfig metricsConfig = new MetricsConfig(enableMetrics, metricsHandlers);
+
         return new GremlinCluster(filteredEndpoints, endpoints -> {
             Cluster.Builder builder = Cluster.build()
                     .reconnectInterval(reconnectInterval)
@@ -651,6 +667,6 @@ public class GremlinClusterBuilder {
             configurator.apply(builder, endpoints);
 
             return builder.create();
-        }, endpointStrategies, acquireConnectionConfig);
+        }, endpointStrategies, acquireConnectionConfig, metricsConfig);
     }
 }

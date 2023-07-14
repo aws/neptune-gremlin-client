@@ -25,54 +25,54 @@ import java.util.stream.Stream;
 import static org.apache.tinkerpop.gremlin.driver.ApprovalResult.REJECTED_REASON_ANNOTATION;
 
 class EndpointClientCollection implements Iterable<EndpointClient> {
+
+    public static Builder builder(){
+        return new Builder();
+    }
+
     private final List<EndpointClient> endpointClients;
     private final EndpointCollection rejectedEndpoints;
-    private final Map<String, EndpointConnectionMetrics> connectionMetrics;
-    private final RequestMetrics requestMetrics;
+    private final boolean collectMetrics;
+    private final ConnectionMetricsCollector connectionMetrics;
+    private final RequestMetricsCollector requestMetrics;
     private final long startMillis = System.currentTimeMillis();
 
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService;
 
     private static final Logger logger = LoggerFactory.getLogger(EndpointClientCollection.class);
 
+    EndpointClientCollection(Builder builder) {
+        this.rejectedEndpoints = builder.getRejectedEndpoints();
+        this.endpointClients = builder.getEndpointClients();
+        this.collectMetrics = builder.collectMetrics();
+        this.executorService = collectMetrics ? Executors.newSingleThreadExecutor() : null;
+        this.connectionMetrics = collectMetrics ? initConnectionMetrics(endpointClients) : null;
+        this.requestMetrics = collectMetrics ? initRequestMetrics(endpointClients) : null;
+    }
+
     EndpointClientCollection() {
-        this(new EndpointCollection());
+        this(new Builder());
     }
 
-    EndpointClientCollection(EndpointCollection rejectedEndpoints) {
-        this(new ArrayList<>(), rejectedEndpoints);
-    }
-
-    EndpointClientCollection(List<EndpointClient> endpointClients) {
-        this(endpointClients, new EndpointCollection());
-    }
-
-    EndpointClientCollection(List<EndpointClient> endpointClients, EndpointCollection rejectedEndpoints) {
-        this.rejectedEndpoints = rejectedEndpoints;
-        this.endpointClients = endpointClients;
-        this.connectionMetrics = initMetrics(endpointClients);
-        this.requestMetrics = initRequestMetrics(endpointClients);
-    }
-
-    private RequestMetrics initRequestMetrics(List<EndpointClient> endpointClients) {
-        Map<String, EndpointRequestMetrics> requestMetrics = new HashMap<>();
+    private RequestMetricsCollector initRequestMetrics(List<EndpointClient> endpointClients) {
+        Map<String, EndpointRequestMetrics> requestMetrics = new ConcurrentHashMap<>();
         for (EndpointClient endpointClient : endpointClients) {
             String address = endpointClient.endpoint().getAddress();
             requestMetrics.put(address, new EndpointRequestMetrics(address));
         }
-        return new RequestMetrics(requestMetrics);
+        return new RequestMetricsCollector(requestMetrics);
     }
 
-    private Map<String, EndpointConnectionMetrics> initMetrics(List<EndpointClient> endpointClients) {
-        Map<String, EndpointConnectionMetrics> endpointClientMetrics = new HashMap<>();
+    private ConnectionMetricsCollector initConnectionMetrics(List<EndpointClient> endpointClients) {
+        Map<String, EndpointConnectionMetrics> endpointClientMetrics = new ConcurrentHashMap<>();
         for (EndpointClient endpointClient : endpointClients) {
             String address = endpointClient.endpoint().getAddress();
             endpointClientMetrics.put(address, new EndpointConnectionMetrics(address));
         }
-        return endpointClientMetrics;
+        return new ConnectionMetricsCollector(endpointClientMetrics);
     }
 
-    public List<EndpointClient> getSurvivingEndpointClients(EndpointCollection acceptedEndpoints) {
+    List<EndpointClient> getSurvivingEndpointClients(EndpointCollection acceptedEndpoints) {
         List<EndpointClient> results = new ArrayList<>();
         for (EndpointClient endpointClient : endpointClients) {
             Endpoint endpoint = endpointClient.endpoint();
@@ -84,7 +84,7 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
         return results;
     }
 
-    public Connection chooseConnection(RequestMessage msg, ChooseEndpointStrategy strategy) throws TimeoutException {
+    Connection chooseConnection(RequestMessage msg, ChooseEndpointStrategy strategy) throws TimeoutException {
 
         UUID traceId = msg.getRequestId();
 
@@ -95,77 +95,57 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
 
         if (!endpointClient.isAvailable()) {
             logger.debug("No connections available for {}", address);
-            try {
-                executorService.submit(() -> connectionMetrics.get(address).unavailable(startMillis));
-            } catch (RejectedExecutionException e) {
-                // Do nothing
-            }
+            submitMetrics(() -> connectionMetrics.unavailable(address, startMillis));
             return null;
         }
 
         try {
+
             Connection connection = endpointClient.client().chooseConnection(msg);
+
             if (connection.isClosing()) {
                 logger.debug("Connection is closing: {}", address);
-                try {
-                    executorService.submit(() -> connectionMetrics.get(address).closing(startMillis));
-                } catch (RejectedExecutionException e) {
-                    // Do nothing
-                }
+                submitMetrics(() -> connectionMetrics.closing(address, startMillis));
                 return null;
             }
+
             if (connection.isDead()) {
                 logger.debug("Connection is dead: {}", address);
-                try {
-                    executorService.submit(() -> connectionMetrics.get(address).dead(startMillis));
-                } catch (RejectedExecutionException e) {
-                    // Do nothing
-                }
+                submitMetrics(() -> connectionMetrics.dead(address, startMillis));
                 return null;
             }
-            try {
-                executorService.submit(() -> {
-                    try {
-                        if (connectionMetrics.containsKey(address)) {
-                            connectionMetrics.get(address).succeeded(startMillis);
-                        }
-                        requestMetrics.registerAddressForTraceId(address, traceId);
-                    } catch (Exception e) {
-                        logger.error("Error while submitting metrics", e);
-                    }
-                });
-            } catch (RejectedExecutionException e) {
-                // Do nothing
-            }
+
+            submitMetrics(() -> {
+                try {
+                    connectionMetrics.succeeded(address, startMillis);
+                    requestMetrics.registerAddressForTraceId(traceId, address);
+                } catch (Exception e) {
+                    logger.error("Error while submitting metrics", e);
+                }
+            });
+
             return connection;
+
         } catch (NullPointerException e) {
             logger.debug("NullPointerException: {}", address, e);
-            try {
-                executorService.submit(() -> connectionMetrics.get(address).npe(startMillis));
-            } catch (RejectedExecutionException ex) {
-                // Do nothing
-            }
+            submitMetrics(() -> connectionMetrics.npe(address, startMillis));
             return null;
         } catch (NoHostAvailableException e) {
             logger.debug("No connection available: {}", address, e);
-            try {
-                executorService.submit(() -> connectionMetrics.get(address).nha(startMillis));
-            } catch (RejectedExecutionException ex) {
-                // Do nothing
-            }
+            submitMetrics(() -> connectionMetrics.nha(address, startMillis));
             return null;
         }
     }
 
-    public EndpointClient get(int index) {
+    EndpointClient get(int index) {
         return endpointClients.get(index);
     }
 
-    public int size() {
+    int size() {
         return endpointClients.size();
     }
 
-    public boolean isEmpty() {
+    boolean isEmpty() {
         return endpointClients.isEmpty();
     }
 
@@ -174,71 +154,105 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
         return endpointClients.iterator();
     }
 
-    public Stream<EndpointClient> stream() {
+    Stream<EndpointClient> stream() {
         return endpointClients.stream();
     }
 
-    public EndpointCollection endpoints() {
+    EndpointCollection endpoints() {
         List<Endpoint> endpoints = endpointClients.stream()
                 .map(EndpointClient::endpoint)
                 .collect(Collectors.toList());
         return new EndpointCollection(endpoints);
     }
 
-    public boolean hasRejectedEndpoints() {
+    boolean hasRejectedEndpoints() {
         return !rejectedEndpoints.isEmpty();
     }
 
-    public Collection<String> rejectionReasons() {
+    Collection<String> rejectionReasons() {
         return rejectedEndpoints.stream()
                 .map(e -> e.getAnnotations().getOrDefault(REJECTED_REASON_ANNOTATION, "unknown"))
                 .collect(Collectors.toSet());
     }
 
-    public void close() {
-        executorService.shutdown();
-        try {
-            executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            logger.error("Interrupted while shutting down EndpointClientCollection", e);
+    private void submitMetrics(Runnable runnable){
+        if (collectMetrics) {
+            try {
+                executorService.submit(runnable);
+            } catch (RejectedExecutionException ex) {
+                // Do nothing
+            }
         }
-
-        Map<String, EndpointRequestMetrics> endpointRequestMetrics = requestMetrics.endpointRequestMetrics();
-
-        long totalConnectionAttempts = 0;
-        for (EndpointConnectionMetrics cm : connectionMetrics.values()) {
-            totalConnectionAttempts += cm.total();
-        }
-
-        long totalRequests = 0;
-        for (EndpointRequestMetrics rm : endpointRequestMetrics.values()) {
-            totalRequests += rm.count();
-        }
-        for (Map.Entry<String, EndpointRequestMetrics> rm : endpointRequestMetrics.entrySet()) {
-            totalRequests += rm.getValue().count();
-        }
-
-
-        long duration = System.currentTimeMillis() - startMillis;
-
-        logger.info("Connection metrics: [duration: {}ms, totalConnectionAttempts:{}, endpoints: [{}]]",
-                duration,
-                totalConnectionAttempts,
-                connectionMetrics.values().stream()
-                        .map(EndpointConnectionMetrics::toString)
-                        .collect(Collectors.joining(", ")));
-
-        logger.info("Request metrics: [duration: {}ms, totalRequests:{}, endpoints: [{}]]",
-                duration,
-                totalRequests,
-                endpointRequestMetrics.values().stream()
-                        .map(Object::toString)
-                        .collect(Collectors.joining(", ")));
     }
 
-    public void registerDurationForTraceId(UUID traceId, long durationMillis) {
-        executorService.submit(() -> {
-            requestMetrics.registerDurationForTraceId(traceId, durationMillis);
-        });
+    void close(MetricsHandler handler) {
+
+        if (executorService != null) {
+            executorService.shutdownNow();
+        }
+
+        if (!collectMetrics) {
+            return;
+        }
+
+        if (handler != null){
+
+            long duration = System.currentTimeMillis() - startMillis;
+
+            ConnectionMetrics conMetrics = new ConnectionMetrics(
+                    duration,
+                    connectionMetrics.totalConnectionAttempts(),
+                    connectionMetrics.metrics() );
+
+            RequestMetrics reqMetrics = new RequestMetrics(
+                    duration,
+                    requestMetrics.totalRequests(),
+                    requestMetrics.droppedRequests(),
+                    requestMetrics.skippedResponses(),
+                    requestMetrics.metrics());
+
+            handler.onMetricsPublished(conMetrics, reqMetrics);
+        }
+    }
+
+    void registerDurationForTraceId(UUID traceId, long durationMillis) {
+        submitMetrics(() -> requestMetrics.registerDurationForTraceId(traceId, durationMillis));
+    }
+
+    static class Builder {
+        private List<EndpointClient> endpointClients = new ArrayList<>();
+        private EndpointCollection rejectedEndpoints = new EndpointCollection();
+        private boolean collectMetrics = false;
+
+        private Builder(){
+
+        }
+
+        public Builder withEndpointClients(List<EndpointClient> endpointClients) {
+            this.endpointClients = endpointClients;
+            return this;
+        }
+
+        public Builder withRejectedEndpoints(EndpointCollection rejectedEndpoints) {
+            this.rejectedEndpoints = rejectedEndpoints;
+            return this;
+        }
+
+        public Builder setCollectMetrics(boolean collectMetrics) {
+            this.collectMetrics = collectMetrics;
+            return this;
+        }
+
+        List<EndpointClient> getEndpointClients() {
+            return endpointClients;
+        }
+
+        EndpointCollection getRejectedEndpoints() {
+            return rejectedEndpoints;
+        }
+
+        boolean collectMetrics() {
+            return collectMetrics;
+        }
     }
 }

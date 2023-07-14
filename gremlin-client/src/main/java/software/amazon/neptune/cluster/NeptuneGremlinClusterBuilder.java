@@ -50,6 +50,16 @@ public class NeptuneGremlinClusterBuilder {
     private NeptuneGremlinClusterBuilder() {
     }
 
+    public NeptuneGremlinClusterBuilder addMetricsHandler(MetricsHandler handler){
+        innerBuilder.addMetricsHandler(handler);
+        return this;
+    }
+
+    public NeptuneGremlinClusterBuilder enableMetrics(boolean enableMetrics){
+        innerBuilder.enableMetrics(enableMetrics);
+        return this;
+    }
+
     /**
      * Number of millis to wait between each attempt to acquire a connection.
      */

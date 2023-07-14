@@ -2,52 +2,91 @@ package org.apache.tinkerpop.gremlin.driver;
 
 class EndpointConnectionMetrics {
     private final String address;
-    private volatile long succeeded = 0;
-    private volatile long unavailable = 0;
-    private volatile long closing = 0;
-    private volatile long dead = 0;
-    private volatile long npe = 0;
-    private volatile long nha = 0;
-    private volatile long minMillis = Long.MAX_VALUE;
-    private volatile long maxMillis = 0;
-    private volatile long totalMillis;
+    private long succeeded = 0;
+    private long unavailable = 0;
+    private long closing = 0;
+    private long dead = 0;
+    private long npe = 0;
+    private long nha = 0;
+    private long minMillis = Long.MAX_VALUE;
+    private long maxMillis = 0;
+    private long totalMillis;
 
     EndpointConnectionMetrics(String address) {
         this.address = address;
     }
 
-    public void succeeded(long startMillis){
+    void succeeded(long startMillis){
         succeeded++;
         updateTimings(startMillis);
     }
 
-    public void unavailable(long startMillis){
+    void unavailable(long startMillis){
         unavailable++;
         updateTimings(startMillis);
     }
 
-    public void closing(long startMillis){
+    void closing(long startMillis){
         closing++;
         updateTimings(startMillis);
     }
 
-    public void dead(long startMillis){
+    void dead(long startMillis){
         dead++;
         updateTimings(startMillis);
     }
 
-    public void npe(long startMillis){
+    void npe(long startMillis){
         npe++;
         updateTimings(startMillis);
     }
 
-    public void nha(long startMillis){
+    void nha(long startMillis){
         nha++;
         updateTimings(startMillis);
     }
+    public String getAddress() {
+        return address;
+    }
 
-    long total(){
+    public long getSucceededCount() {
+        return succeeded;
+    }
+
+    public long getUnavailableCount() {
+        return unavailable;
+    }
+
+    public long getClosingCount() {
+        return closing;
+    }
+
+    public long getDeadCount() {
+        return dead;
+    }
+
+    public long getNullPointerExceptionCount() {
+        return npe;
+    }
+
+    public long getNoHostsAvailableCount() {
+        return nha;
+    }
+
+    public long getMinTimeToAcquireMillis() {
+        return minMillis;
+    }
+
+    public long getMaxTimeToAcquireMillis() {
+        return maxMillis;
+    }
+
+    public long getTotalAttempts(){
         return succeeded + unavailable + closing + dead + npe + nha;
+    }
+
+    public double getAverageTimeToAcquireMillis(){
+        return (double)totalMillis/(double) getTotalAttempts();
     }
 
     private void updateTimings(long startMillis){
@@ -64,19 +103,17 @@ class EndpointConnectionMetrics {
 
     @Override
     public String toString() {
-        long total = total();
-        double avg = (double)totalMillis/(double)total;
         return String.format("%s [total: %s, succeeded: %s, unavailable: %s, closing: %s, dead: %s, npe: %s, nha: %s, minMillis: %s, maxMillis: %s, avgMillis: %.2f]",
-                address,
-                total,
-                succeeded,
-                unavailable,
-                closing,
-                dead,
-                npe,
-                nha,
-                minMillis,
-                maxMillis,
-                avg);
+                getAddress(),
+                getTotalAttempts(),
+                getSucceededCount(),
+                getUnavailableCount(),
+                getClosingCount(),
+                getDeadCount(),
+                getNullPointerExceptionCount(),
+                getNoHostsAvailableCount(),
+                getMinTimeToAcquireMillis(),
+                getMaxTimeToAcquireMillis(),
+                getAverageTimeToAcquireMillis());
     }
 }
