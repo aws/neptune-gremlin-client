@@ -90,6 +90,9 @@ cluster.close();
       - [Preserve host headers](#step-3-preserve-host-headers)
       - [Configure host-based routing](#step-4-configure-host-based-routing)
       - [Configure the Neptune Gremlin Client](#step-5-configure-the-neptune-gremlin-client)
+  - [Metrics](#metrics)
+    - [Scheduling metrics](#schdeuling-metrics)
+    - [Metrics handlers](#metrics-handlers)
   - [Usage](#usage)
     - [Use database instance tags to control endpoint visibility](#use-database-instance-tags-to-control-endpoint-visibility)
       - [Prewarm replicas](#prewarm-replicas)
@@ -720,6 +723,84 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
         .proxyPort(80)
         .create();
 ```
+
+## Metrics
+
+From version 2.0.3 onwards, the Neptune Gremlin Client can collect metrics about the attempts to connect to each endpoint, and the requests to each endpoint. Metrics are emitted each time the endpoints of a `GremlinClient` are refreshed (using a refresh agent, for example).
+
+To enable metrics collection, set `enableMetrics()` to `true` when building a cluster:
+
+```
+GremlinCluster cluster =  NeptuneGremlinClusterBuilder.build()
+        .enableMetrics(true)
+        
+        ... // other builder methods
+        
+        .create();
+               
+```
+
+When you enable metrics, connection and request metrics will be written to the log at the `INFO` logging level. Here's an example:
+
+```
+INFO MetricsLogger - Connection metrics: [duration: 15346ms, totalConnectionAttempts:38368, endpoints: [db-1.abcdefghijklm.eu-west-2.neptune.amazonaws.com [total: 19184, succeeded: 19184, unavailable: 0, closing: 0, dead: 0, npe: 0, nha: 0, minMillis: 0, maxMillis: 2, avgMillis: 0.12], db-2.abcdefghijklm.eu-west-2.neptune.amazonaws.com [total: 19184, succeeded: 19184, unavailable: 0, closing: 0, dead: 0, npe: 0, nha: 0, minMillis: 0, maxMillis: 1, avgMillis: 0.12]]]
+
+INFO MetricsLogger - Request metrics: [duration: 15346ms, totalRequests:38368, endpoints: [db-1.abcdefghijklm.eu-west-2.neptune.amazonaws.com [count: 19184, ratePerSec: 1249.935, minMillis: 0, maxMillis: 16, avgMillis: 0.17], db-2.abcdefghijklm.eu-west-2.neptune.amazonaws.com [count: 19184, ratePerSec: 1249.935, minMillis: 0, maxMillis: 3, avgMillis: 0.17]] (dropped: 0, skipped: 0)]
+
+```
+
+Connection metrics capture the time taken to attempt to acquire a connection. Using the connection metrics, you can determine whether requests are using connections that are equally distributed across the endpoints.
+
+Request metrics capture the average latencies for request to each of the endpoints. Using the request metrics, you can determine whether some endpoinst are returning responses more slowly than others.
+
+### Scheduling metrics
+
+Metrics are only emitted when the endpoints of a `GremlinClient` are refreshed. If you've enabled metrics when building a cluster, and you're using a refresh agent to keep your clients up-to-date with changes in your Neptune database's cluster topology, connection and request metrics will be emitted automatically. If you're not using a refresh agent (perhaps you've supplied a static list of endpoints when building a cluster, and therefore don't need to refresh them periodically) you have two options to force merics to be emitted periodically.
+
+The simplest option is to 'monitor' your client using a refresh agent. In the following example, the monitor will cause the client to emit metrics every 15 seconds:
+
+```
+GremlinClient client = cluster.connect();
+
+
+ClusterEndpointsRefreshAgent refreshAgent = ClusterEndpointsRefreshAgent.monitor(client, 15, TimeUnit.SECONDS);
+
+// Application code
+
+refreshAgent.close()
+```
+
+Remember to close the refresh agent when you're finished with it.
+
+If you don't want to use a refresh agent to monitor a client, you can call `refresh()` directly on the client instance instead:
+
+```
+GremlinClient client = cluster.connect();
+
+
+client.refresh(); // Call this periodically to emit metrics
+```
+
+With this second approach, you'll have to schedule the period call to `refresh()` in your application code.
+
+### Metrics handlers
+
+When you enable metrics in a cluster builder metrics will automatically be written to the log whenever the endpoints of a `GremlinClient` are refreshed. Besides logging metrics, you also have the option of supplying a `MetricsHandler`:
+
+```
+GremlinCluster cluster =  NeptuneGremlinClusterBuilder.build()
+        .enableMetrics(true)
+        .addMetricsHandler((connectionMetrics, requestMetrics) -> {
+                // Your handler code   
+        })
+        
+        ...
+        
+        .create();
+```
+
+Using a `MetricsHandler` you can, for example, publish metrics to Amazon CloudWatch.
+
 
 ## Usage
 
