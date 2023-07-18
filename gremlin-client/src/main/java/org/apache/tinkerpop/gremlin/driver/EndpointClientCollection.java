@@ -207,6 +207,7 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
             RequestMetrics reqMetrics = new RequestMetrics(
                     duration,
                     requestMetrics.totalRequests(),
+                    requestMetrics.failedRequests(),
                     requestMetrics.droppedRequests(),
                     requestMetrics.skippedResponses(),
                     requestMetrics.metrics());
@@ -215,8 +216,8 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
         }
     }
 
-    void registerDurationForTraceId(UUID traceId, long durationMillis) {
-        submitMetrics(() -> requestMetrics.registerDurationForTraceId(traceId, durationMillis));
+    void registerDurationForTraceId(UUID traceId, long durationMillis, Throwable e) {
+        submitMetrics(() -> requestMetrics.registerDurationForTraceId(traceId, durationMillis, e));
     }
 
     static class Builder {

@@ -30,14 +30,14 @@ class MetricsLogger implements MetricsHandler {
                         .map(EndpointConnectionMetrics::toString)
                         .collect(Collectors.joining(", ")));
 
-        logger.info("Request metrics: [duration: {}ms, totalRequests:{}, endpoints: [{}] (dropped: {}, skipped: {})]",
+        logger.info("Request metrics: [duration: {}ms, totalRequests:{}, failed: {}, endpoints: [{}] (dropped: {}, skipped: {})]",
                 requestMetrics.getDurationMillis(),
                 requestMetrics.getTotalRequests(),
-
+                requestMetrics.getFailedRequestsCount(),
                 requestMetrics.getMetrics().stream()
                         .map(EndpointRequestMetrics::toString)
                         .collect(Collectors.joining(", ")),
-                requestMetrics.getDroppedRequests(),
-                requestMetrics.getSkippedResponses());
+                requestMetrics.getDroppedRequestsCount(),
+                requestMetrics.getSkippedResponsesCount());
     }
 }

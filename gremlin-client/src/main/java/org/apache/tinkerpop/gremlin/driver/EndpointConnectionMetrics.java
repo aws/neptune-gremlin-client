@@ -20,7 +20,7 @@ class EndpointConnectionMetrics {
     private long dead = 0;
     private long npe = 0;
     private long nha = 0;
-    private long minMillis = Long.MAX_VALUE;
+    private long minMillis = 0;
     private long maxMillis = 0;
     private long totalMillis;
 

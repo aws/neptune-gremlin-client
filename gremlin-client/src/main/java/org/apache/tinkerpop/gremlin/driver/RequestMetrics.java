@@ -17,17 +17,21 @@ import java.util.Collection;
 public class RequestMetrics {
     private final long durationMillis;
     private final long totalRequests;
+
+    private final long failedRequests;
     private final int droppedRequests;
     private final int skippedResponses;
     private Collection<EndpointRequestMetrics> metrics;
 
     RequestMetrics(long durationMillis,
                    long totalRequests,
+                   long failedRequests,
                    int droppedRequests,
                    int skippedResponses,
                    Collection<EndpointRequestMetrics> metrics) {
         this.durationMillis = durationMillis;
         this.totalRequests = totalRequests;
+        this.failedRequests = failedRequests;
         this.droppedRequests = droppedRequests;
         this.skippedResponses = skippedResponses;
         this.metrics = metrics;
@@ -41,11 +45,15 @@ public class RequestMetrics {
         return totalRequests;
     }
 
-    public int getDroppedRequests() {
+    public long getFailedRequestsCount() {
+        return failedRequests;
+    }
+
+    public int getDroppedRequestsCount() {
         return droppedRequests;
     }
 
-    public int getSkippedResponses() {
+    public int getSkippedResponsesCount() {
         return skippedResponses;
     }
 

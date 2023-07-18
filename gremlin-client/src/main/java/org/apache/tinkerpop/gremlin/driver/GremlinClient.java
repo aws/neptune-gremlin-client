@@ -316,7 +316,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
             if (endpointClients != null){
                 return future.whenComplete((results, throwable) -> {
                     long durationMillis = System.currentTimeMillis() - start;
-                    endpointClients.registerDurationForTraceId(traceId, durationMillis);
+                    endpointClients.registerDurationForTraceId(traceId, durationMillis, throwable);
                 });
             } else {
                 return future;

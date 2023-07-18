@@ -784,7 +784,7 @@ With this second approach, you'll have to schedule the periodic call to `refresh
 
 ### Metrics handlers
 
-When you enable metrics in a cluster builder metrics will automatically be written to the log whenever the endpoints of a `GremlinClient` are refreshed. Besides logging metrics, you also have the option of supplying a `MetricsHandler`:
+When you enable metrics, metrics will automatically be written to the log whenever the endpoints of a `GremlinClient` are refreshed. Besides logging metrics, you also have the option of supplying a `MetricsHandler`:
 
 ```
 GremlinCluster cluster =  NeptuneGremlinClusterBuilder.build()

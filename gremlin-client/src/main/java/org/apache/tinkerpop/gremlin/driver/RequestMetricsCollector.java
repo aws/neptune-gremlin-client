@@ -41,11 +41,11 @@ class RequestMetricsCollector {
         traceIds.put(traceId, address);
     }
 
-    public void registerDurationForTraceId(UUID traceId, long durationMillis) {
+    public void registerDurationForTraceId(UUID traceId, long durationMillis, Throwable e) {
         String address = traceIds.remove(traceId);
         if (address != null) {
             if (metrics.containsKey(address)) {
-                metrics.get(address).update(durationMillis);
+                metrics.get(address).update(durationMillis, e);
             } else {
                 skipped++;
             }
@@ -64,9 +64,17 @@ class RequestMetricsCollector {
     public long totalRequests(){
         long totalRequests = 0;
         for (EndpointRequestMetrics rm : metrics.values()) {
-            totalRequests += rm.getCount();
+            totalRequests += (rm.getSuccessCount() + rm.getErrorCount());
         }
         return totalRequests;
+    }
+
+    public long failedRequests(){
+        long failedRequests = 0;
+        for (EndpointRequestMetrics rm : metrics.values()) {
+            failedRequests += rm.getErrorCount();
+        }
+        return failedRequests;
     }
 
     public Collection<EndpointRequestMetrics> metrics(){
