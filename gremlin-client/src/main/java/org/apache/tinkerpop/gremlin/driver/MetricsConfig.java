@@ -12,12 +12,21 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
+import com.amazonaws.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import software.amazon.utils.EnvironmentVariableUtils;
+
 class MetricsConfig {
+
+    private static final String PROPERTY_NAME = "org.apache.tinkerpop.gremlin.driver.MetricsConfig.enableMetrics";
+
+    private static final Logger logger = LoggerFactory.getLogger(MetricsConfig.class);
     private final boolean enableMetrics;
     private final MetricsHandlerCollection metricsHandlers;
 
     MetricsConfig(boolean enableMetrics, MetricsHandlerCollection metricsHandlers) {
-        this.enableMetrics = enableMetrics;
+        this.enableMetrics = calculateEnableMetricsValue(enableMetrics);
         this.metricsHandlers = metricsHandlers;
     }
 
@@ -27,5 +36,33 @@ class MetricsConfig {
 
     public MetricsHandlerCollection metricsHandlers() {
         return metricsHandlers;
+    }
+
+    private boolean calculateEnableMetricsValue(boolean enableMetricsBuilder) {
+
+        Boolean enableMetricsEnv = null;
+        Boolean enableMetricsSys = null;
+
+        String envVar = EnvironmentVariableUtils.getOptionalEnv(PROPERTY_NAME, null);
+        if (!StringUtils.isNullOrEmpty(envVar)) {
+            enableMetricsEnv = Boolean.parseBoolean(envVar);
+        }
+
+        String sysProp = System.getProperty(PROPERTY_NAME, null);
+        if (!StringUtils.isNullOrEmpty(sysProp)) {
+            enableMetricsSys = Boolean.parseBoolean(sysProp);
+        }
+
+        boolean result = false;
+
+        if ((enableMetricsEnv != null && !enableMetricsEnv) || (enableMetricsSys != null && !enableMetricsSys)) {
+            result = false;
+        } else if (enableMetricsBuilder || enableMetricsEnv != null || enableMetricsSys != null) {
+            result = true;
+        }
+
+        logger.debug("Enable metrics: {} [builder: {}, env: {}, sys: {}]", result, enableMetricsBuilder, enableMetricsEnv, enableMetricsSys);
+
+        return result;
     }
 }

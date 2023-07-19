@@ -739,6 +739,8 @@ GremlinCluster cluster =  NeptuneGremlinClusterBuilder.build()
         .create();               
 ```
 
+You can also enable or disable metrics using a `org.apache.tinkerpop.gremlin.driver.MetricsConfig.enableMetrics` environment variable or system property. If either the environment variable or system property is set to `false`, then metrics will be disabled, irrespective of the builder configuration. 
+
 When you enable metrics, connection and request metrics will be written to the log at the `INFO` logging level. Here's an example:
 
 ```
