@@ -13,7 +13,6 @@ permissions and limitations under the License.
 package org.apache.tinkerpop.gremlin.driver;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;

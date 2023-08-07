@@ -12,7 +12,7 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-class EndpointConnectionMetrics {
+public class EndpointConnectionMetrics {
     private final String address;
     private long succeeded = 0;
     private long unavailable = 0;
