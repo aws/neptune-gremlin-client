@@ -36,8 +36,8 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
     private final ConnectionMetricsCollector connectionMetrics;
     private final RequestMetricsCollector requestMetrics;
     private final long startMillis = System.currentTimeMillis();
-
     private final ExecutorService executorService;
+    private volatile boolean allowSubmitMetrics = true;
 
     private static final Logger logger = LoggerFactory.getLogger(EndpointClientCollection.class);
 
@@ -176,43 +176,54 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
     }
 
     private void submitMetrics(Runnable runnable){
-        if (collectMetrics) {
+        if (collectMetrics && allowSubmitMetrics) {
             try {
                 executorService.submit(runnable);
-            } catch (RejectedExecutionException ex) {
-                // Do nothing
+            } catch (RejectedExecutionException e) {
+                logger.trace("Error submitting metrics", e);
             }
         }
     }
 
     void close(MetricsHandler handler) {
 
-        if (executorService != null) {
-            executorService.shutdownNow();
-        }
-
         if (!collectMetrics) {
             return;
         }
 
-        if (handler != null){
+        allowSubmitMetrics = false;
 
-            long duration = System.currentTimeMillis() - startMillis;
+        if (handler != null && executorService != null){
 
-            ConnectionMetrics conMetrics = new ConnectionMetrics(
-                    duration,
-                    connectionMetrics.totalConnectionAttempts(),
-                    connectionMetrics.metrics() );
+            Future<?> future = executorService.submit(() -> {
+                long duration = System.currentTimeMillis() - startMillis;
 
-            RequestMetrics reqMetrics = new RequestMetrics(
-                    duration,
-                    requestMetrics.totalRequests(),
-                    requestMetrics.failedRequests(),
-                    requestMetrics.droppedRequests(),
-                    requestMetrics.skippedResponses(),
-                    requestMetrics.metrics());
+                ConnectionMetrics conMetrics = new ConnectionMetrics(
+                        duration,
+                        connectionMetrics.totalConnectionAttempts(),
+                        connectionMetrics.metrics());
 
-            handler.onMetricsPublished(conMetrics, reqMetrics);
+                RequestMetrics reqMetrics = new RequestMetrics(
+                        duration,
+                        requestMetrics.totalRequests(),
+                        requestMetrics.failedRequests(),
+                        requestMetrics.droppedRequests(),
+                        requestMetrics.skippedResponses(),
+                        requestMetrics.metrics());
+
+                handler.onMetricsPublished(conMetrics, reqMetrics);
+            });
+
+            try {
+                future.get(5, TimeUnit.SECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                logger.error("Error while publishing metrics", e);
+            }
+
+        }
+
+        if (executorService != null) {
+            executorService.shutdownNow();
         }
     }
 

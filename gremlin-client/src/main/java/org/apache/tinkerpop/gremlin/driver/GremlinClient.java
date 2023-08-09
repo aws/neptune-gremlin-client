@@ -43,10 +43,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
     private final ClientClusterCollection clientClusterCollection;
     private final EndpointStrategies endpointStrategies;
     private final AcquireConnectionConfig acquireConnectionConfig;
-
     private final MetricsConfig metricsConfig;
-
-    private final ExecutorService metricsExecutorService;
 
     GremlinClient(Cluster cluster,
                   Settings settings,
@@ -63,7 +60,6 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
         this.acquireConnectionConfig = acquireConnectionConfig;
         this.connectionAttemptManager = acquireConnectionConfig.createConnectionAttemptManager(this);
         this.metricsConfig = metricsConfig;
-        this.metricsExecutorService = this.metricsConfig.enableMetrics() ? Executors.newSingleThreadExecutor() : null;
 
         logger.info("availableEndpointFilter: {}", endpointStrategies.endpointFilter());
     }
@@ -113,9 +109,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
         endpointClientCollection.set(newEndpointClientCollection);
         clientClusterCollection.removeClustersWithNoMatchingEndpoint(newEndpointClientCollection.endpoints());
 
-        currentEndpointClientCollection.close(
-                (connectionMetrics, requestMetrics) -> metricsExecutorService.submit(
-                        () -> metricsConfig.metricsHandlers().onMetricsPublished(connectionMetrics, requestMetrics)));
+        currentEndpointClientCollection.close(metricsConfig.metricsHandlers());
     }
 
     public EndpointCollection currentEndpoints(){
@@ -186,7 +180,6 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
         logger.debug("Connection: {} [{} ms]", connection.getConnectionInfo(), System.currentTimeMillis() - start);
 
-
         return connection;
     }
 
@@ -211,9 +204,6 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
         if (closing.get() != null)
             return closing.get();
 
-        if (metricsExecutorService != null){
-            metricsExecutorService.shutdownNow();
-        }
         connectionAttemptManager.shutdownNow();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
