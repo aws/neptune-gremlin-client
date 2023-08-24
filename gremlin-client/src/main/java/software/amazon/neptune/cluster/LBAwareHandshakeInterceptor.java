@@ -33,30 +33,52 @@ class LBAwareHandshakeInterceptor implements HandshakeInterceptor {
     private final IamAuthConfig iamAuthConfig;
     private final String serviceRegion;
 
+    private final NeptuneNettyHttpSigV4Signer sigV4Signer;
+
     LBAwareHandshakeInterceptor(IamAuthConfig iamAuthConfig) {
         this.iamAuthConfig = iamAuthConfig;
         this.serviceRegion = getServiceRegion();
+        this.sigV4Signer = createSigV4Signer();
+    }
+
+    private NeptuneNettyHttpSigV4Signer createSigV4Signer() {
+        if (iamAuthConfig.enableIamAuth()) {
+
+            try {
+                return new NeptuneNettyHttpSigV4Signer(
+                        serviceRegion,
+                        iamAuthConfig.credentialsProviderChain());
+
+
+            } catch (NeptuneSigV4SignerException e) {
+                throw new RuntimeException("Exception occurred while creating NeptuneSigV4Signer", e);
+            }
+        } else {
+            return null;
+        }
     }
 
     @Override
     public FullHttpRequest apply(FullHttpRequest request) {
         logger.trace("iamAuthConfig: {}, serviceRegion: {}", iamAuthConfig, serviceRegion);
 
-        if (iamAuthConfig.enableIamAuth() || iamAuthConfig.connectViaLoadBalancer()){
+        if (iamAuthConfig.enableIamAuth() || iamAuthConfig.connectViaLoadBalancer()) {
             request.headers().remove("Host");
             request.headers().remove("host");
             request.headers().add("Host", iamAuthConfig.chooseHostHeader());
         }
 
-        if (iamAuthConfig.enableIamAuth()){
+        if (iamAuthConfig.enableIamAuth()) {
 
             try {
 
-                NeptuneNettyHttpSigV4Signer sigV4Signer = new NeptuneNettyHttpSigV4Signer(
-                        serviceRegion,
-                        iamAuthConfig.credentialsProviderChain());
+                NeptuneNettyHttpSigV4Signer signer = sigV4Signer != null ?
+                        sigV4Signer :
+                        new NeptuneNettyHttpSigV4Signer(
+                                serviceRegion,
+                                iamAuthConfig.credentialsProviderChain());
 
-                sigV4Signer.signRequest(request);
+                signer.signRequest(request);
 
                 if (iamAuthConfig.removeHostHeaderAfterSigning()) {
                     request.headers().remove("Host");
