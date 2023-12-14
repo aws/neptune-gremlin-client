@@ -32,13 +32,14 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
 
     private static final Logger logger = LoggerFactory.getLogger(GetEndpointsFromNeptuneManagementApi.class);
 
+    private static final String ANNOTATION_KEY_PREFIX = "neptune:annotation:";
+
     private final ClusterEndpointsFetchStrategy innerStrategy;
     private final String clusterId;
     private final String region;
     private final String iamProfile;
     private final AWSCredentialsProvider credentials;
     private final AtomicReference<NeptuneClusterMetadata> cachedClusterMetadata = new AtomicReference<>();
-
     private final ClientConfiguration clientConfiguration;
 
     GetEndpointsFromNeptuneManagementApi(String clusterId) {
@@ -146,6 +147,8 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
                                     role = "reader";
                                 }
                                 String address = c.getEndpoint() == null ? null : c.getEndpoint().getAddress();
+                                Map<String, String> tags = getTags(c.getDBInstanceArn(), neptune);
+                                Map<String, String> annotations = getAnnotations(tags);
                                 instances.add(
                                         new NeptuneInstanceMetadata()
                                                 .withInstanceId(c.getDBInstanceIdentifier())
@@ -154,7 +157,8 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
                                                 .withStatus(c.getDBInstanceStatus())
                                                 .withAvailabilityZone(c.getAvailabilityZone())
                                                 .withInstanceType(c.getDBInstanceClass())
-                                                .withTags(getTags(c.getDBInstanceArn(), neptune)));
+                                                .withTags(tags)
+                                                .withAnnotations(annotations));
                             }
                     );
 
@@ -185,6 +189,8 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
 
     }
 
+
+
     @Override
     public NeptuneClusterMetadata getClusterMetadata() {
         NeptuneClusterMetadata clusterMetadata = cachedClusterMetadata.get();
@@ -214,5 +220,18 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
         tagList.forEach(t -> tags.put(t.getKey(), t.getValue()));
 
         return tags;
+    }
+
+    private Map<String, String> getAnnotations(Map<String, String> tags) {
+        Map<String, String> annotations = new HashMap<>();
+
+        for (Map.Entry<String, String> tag : tags.entrySet()) {
+            String key = tag.getKey();
+            if (key.startsWith(ANNOTATION_KEY_PREFIX)){
+                annotations.put(key.substring(ANNOTATION_KEY_PREFIX.length()), tag.getValue());
+            }
+        }
+
+        return annotations;
     }
 }

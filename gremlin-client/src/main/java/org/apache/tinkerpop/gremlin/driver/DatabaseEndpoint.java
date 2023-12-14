@@ -13,6 +13,7 @@ permissions and limitations under the License.
 package org.apache.tinkerpop.gremlin.driver;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;

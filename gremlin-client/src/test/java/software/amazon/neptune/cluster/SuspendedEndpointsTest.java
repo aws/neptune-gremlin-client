@@ -37,13 +37,13 @@ public class SuspendedEndpointsTest {
         EndpointCollection endpoints = new EndpointCollection(
                 Arrays.asList(endpoint1, endpoint2, endpoint3, endpoint4));
 
-        EndpointCollection acceptedEndpoints = endpoints.getAcceptedEndpoints(filter);
+        EndpointCollection acceptedEndpoints = EndpointCollectionUtil.getAcceptedEndpoints(endpoints, filter);
 
         assertEquals(2, acceptedEndpoints.size());
         assertEquals(endpoint1, acceptedEndpoints.get("address1"));
         assertEquals(endpoint3, acceptedEndpoints.get("address3"));
 
-        EndpointCollection rejectedEndpoints = endpoints.getRejectedEndpoints(filter);
+        EndpointCollection rejectedEndpoints = EndpointCollectionUtil.getRejectedEndpoints(endpoints, filter);
 
         assertEquals(2, rejectedEndpoints.size());
         for (Endpoint rejectedEndpoint : rejectedEndpoints) {

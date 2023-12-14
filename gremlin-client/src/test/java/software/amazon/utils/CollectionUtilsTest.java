@@ -36,4 +36,5 @@ public class CollectionUtilsTest {
         assertTrue(result.contains("b"));
         assertTrue(result.contains("c"));
     }
+
 }

@@ -174,7 +174,21 @@ Once you have a reference to a `GremlinClient`, you can call this `refreshEndpoi
 To update the list of endpoint addresses:
  
 ```
-client.refreshEndpoints("new-replica-endpoint-1", "new-replica-endpoint-2", "new-replica-endpoint-3")
+client.refreshEndpoints(new EndpointCollection(Arrays.asList(
+                    new DatabaseEndpoint().withAddress("new-replica-endpoint-1"),
+                    new DatabaseEndpoint().withAddress("new-replica-endpoint-2"),
+                    new DatabaseEndpoint().withAddress("new-replica-endpoint-3")
+            )));
+```
+
+From version 2.0.5 onwards, you can use:
+
+```
+client.refreshEndpoints(
+                new DatabaseEndpoint().withAddress("new-replica-endpoint-1"),
+                new DatabaseEndpoint().withAddress("new-replica-endpoint-2"),
+                new DatabaseEndpoint().withAddress("new-replica-endpoint-3")
+        );
 ```
  
 You can also use a `ClusterEndpointsRefreshAgent` to update the endpoints automatically on a periodic basis.
@@ -242,9 +256,13 @@ The AWS Lambda proxy has the following environment variables:
   
 #### Suspending endpoints using the AWS Lambda proxy
 
-The Lambda proxy has a `suspended` environment variable that accepts the following values: `none`, `all`, `writer`, `reader`. You can use this environment variable to _suspend_ specific types of endpoint. Suspended endpoints will not be chosen by the client when it applies a selector to the cluster topology.
+The Lambda proxy has a `suspended` environment variable that accepts a comma-separated list of the following values: `all`, `writer`, `reader`, `<endpoint_address>`, `<instance_id>`. You can use this environment variable to _suspend_ specific types of endpoint and specific instance endpoints. Suspended endpoints will not be chosen by the client when it applies a selector to the cluster topology.
 
-To suspend a particular endpoint type, change the variable value, save the change, and once it has propagated (this may take up to a minute), all clients that use the Lambda proxy will see the specified endpoints as being suspended. Setting the value to `reader`, for example, will ensure that all instances currently in a reader role will be seen as suspended.
+To suspend a particular endpoint type or specific instance endpoint, change the variable value, save the change, and once it has propagated (this may take up to a minute), all clients that use the Lambda proxy will see the specified endpoints as being suspended. Setting the value to `reader`, for example, will ensure that all instances currently in a reader role will be seen as suspended. Setting the value to `writer,neptune-db-2-05d7a510` will suspend both the primary instance (the writer) and the instance with the instance id `neptune-db-2-05d7a510`.
+
+You can also suspend specific instance endpoints using [Amazon Neptune tags](https://docs.aws.amazon.com/neptune/latest/userguide/tagging.html). To suspend a specific instance, attach a tag with the key `neptune:suspended`, and value `true` to the instance. To remove the suspension, delete the tag or set its value to `false`.
+
+An endpoint will be considered suspended if it has been tagged as suspended, or if it is included in a group referred to by the `suspended` environment variable, or if it is directly referred to using its endpoint address or instance id in the `suspended` environment variable. For example, if the `suspended` environment variable is set to `all`, and an instance has also been tagged as suspended, it will be considered suspended. If the tag is susequently removed, the instance will still be considered suspended, because it belongs to the `all` group. If an instance is tagged `neptune:suspended` with the value `false`, but its id is included in the `suspended` environment variable, the instance will be suspended. 
 
 You can use this feature to prevent traffic to your cluster while you perform maintenance, upgrade or migration activities. Suspended endpoints apply back pressure in the client, preventing it from sending queries to the database cluster. To manage this back pressure, your application will have to handle an `EndpointsUnavailableException`. This exception can occur in two different places:
  
@@ -252,6 +270,8 @@ You can use this feature to prevent traffic to your cluster while you perform ma
   - When you submit a query using an existing `GraphTraversalSource`.
  
 The `EndpointsUnavailableException` will appear as the root cause: invariably, it is wrapped in a `RemoteConnectionexception`, or similar. The only reason you should see an `EndpointsUnavailableException` is because the endpoints have been suspended. 
+
+Suspended endpoints are hidden from endpoint selectors. If an endpoint is suspended, it will not be considered for selection, even if it matches the selection criteria.
 
 ### Using a ClusterEndpointsRefreshAgent to query the Neptune Management API directly
 
@@ -1117,12 +1137,13 @@ org.apache.tinkerpop.gremlin.driver.exception.ResponseException: {"detailedMessa
 Neptune Gremlin Client 2.x.x includes the following breaking changes:
 
   - The `EndpointsSelector.getEndpoints()` method now accepts a `NeptuneClusterMetadata` object and returns an `EndpointCollection` (version 1 returned a collection of String addresses).
+  - The `GremlinClient.refreshEndpoints()` method now accepts an `EndpointCollection` (version 1 accepted a collection of String addresses).
   - `NeptuneInstanceProperties` has been renamed `NeptuneInstanceMetadata`.
   - You can no longer supply a list of selectors when creating a `ClusterEndpointsRefreshAgent`: selectors are applied lazily whenever the agent is triggered.
   - To supply an initial list of endpoints to the `NeptuneGremlinClusterBuilder.addContactPoints()` method, use `refreshAgent.getEndpoints()` with an appropriate selector (version 1 used `getAddresses()`).
   - The `ClusterEndpointsRefreshAgent.startPollingNeptuneAPI()` now accepts a collection of `RefreshTask` objects. Each task encapsulates a client and a selector. This way, you can update multiple clients, each with its own selection logic, using a single refresh agent.
   - The `NeptuneGremlinClusterBuilder` now uses `proxyPort()`, `proxyEndpoint()` and `proxyRemoveHostHeader()` builder methods to configure connections through a proxy (e.g. a load balancer). These methods replace `loadBalancerPort()`, `networkLoadBalancerEndpoint()` and `applicationLoadBalancerEndpoint()`.
-  - The `NeptuneGremlinClusterBuilder`'s `refreshOnErrorThreshold()` and `refreshOnErrorEventHandler()` builder methods have been replaced with `eagerRefreshWaitTimeMillis()` and `onEagerRefresh()`. Note that `refreshOnErrorThreshold()` specified a count of consecutive failure attempts, whereas `eagerRefreshWaitTimeMillis` specifies a wait time in milliseconds. When migrating, set `eagerRefreshWaitTimeMillis` equal to `refreshOnErrorThreshold * 5`. 
+  - The `NeptuneGremlinClusterBuilder.refreshOnErrorThreshold()` and `NeptuneGremlinClusterBuilder.refreshOnErrorEventHandler()` builder methods have been replaced with `eagerRefreshWaitTimeMillis()` and `onEagerRefresh()`. Note that `refreshOnErrorThreshold()` specified a count of consecutive failure attempts, whereas `eagerRefreshWaitTimeMillis` specifies a wait time in milliseconds. When migrating, set `eagerRefreshWaitTimeMillis` equal to `refreshOnErrorThreshold * 5`. 
 
 The following example shows a solution built using Neptune Gremlin Client version 1.0.2:
 

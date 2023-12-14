@@ -27,8 +27,13 @@ public class EndpointCollection implements Iterable<Endpoint> {
             addOrReplace(endpoint);
         }
     }
+    public EndpointCollection(Endpoint... endpoints) {
+        for (Endpoint endpoint : endpoints) {
+            addOrReplace(endpoint);
+        }
+    }
 
-    public EndpointCollection getEndpointsWithNoCluster(ClientClusterCollection clientClusterCollection) {
+    EndpointCollection getEndpointsWithNoCluster(ClientClusterCollection clientClusterCollection) {
         EndpointCollection results = new EndpointCollection();
         for (Endpoint endpoint : endpoints.values()) {
             if (!clientClusterCollection.containsClusterForEndpoint(endpoint)) {
@@ -38,7 +43,7 @@ public class EndpointCollection implements Iterable<Endpoint> {
         return results;
     }
 
-    public EndpointCollection getEnrichedEndpoints(EndpointFilter endpointFilter) {
+    EndpointCollection getEnrichedEndpoints(EndpointFilter endpointFilter) {
         EndpointCollection results = new EndpointCollection();
         for (Endpoint endpoint : endpoints.values()) {
             results.addOrReplace(endpointFilter.enrichEndpoint(endpoint));
@@ -46,7 +51,7 @@ public class EndpointCollection implements Iterable<Endpoint> {
         return results;
     }
 
-    public EndpointCollection getAcceptedEndpoints(EndpointFilter endpointFilter) {
+    EndpointCollection getAcceptedEndpoints(EndpointFilter endpointFilter) {
         EndpointCollection results = new EndpointCollection();
         for (Endpoint endpoint : endpoints.values()) {
             ApprovalResult approvalResult = endpointFilter.approveEndpoint(endpoint);
@@ -57,7 +62,7 @@ public class EndpointCollection implements Iterable<Endpoint> {
         return results;
     }
 
-    public EndpointCollection getRejectedEndpoints(EndpointFilter endpointFilter) {
+    EndpointCollection getRejectedEndpoints(EndpointFilter endpointFilter) {
         EndpointCollection results = new EndpointCollection();
         for (Endpoint endpoint : endpoints.values()) {
             ApprovalResult approvalResult = endpointFilter.approveEndpoint(endpoint);

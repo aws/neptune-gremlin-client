@@ -20,10 +20,7 @@ import org.slf4j.LoggerFactory;
 import software.amazon.utils.CollectionUtils;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -68,8 +65,22 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
      * Refreshes the client with its current set of endpoints.
      * (Useful for triggering metrics for static cluster topologies.)
      */
-    public synchronized void refreshEndpoints(){
+    public void refreshEndpoints(){
         refreshEndpoints(currentEndpoints());
+    }
+
+    /**
+     * Refreshes the list of endpoint addresses to which the client connects.
+     */
+    public void refreshEndpoints(Collection<? extends Endpoint> endpoints) {
+        refreshEndpoints(new EndpointCollection(endpoints));
+    }
+
+    /**
+     * Refreshes the list of endpoint addresses to which the client connects.
+     */
+    public void refreshEndpoints(Endpoint... endpoints) {
+        refreshEndpoints(new EndpointCollection(endpoints));
     }
 
     /**

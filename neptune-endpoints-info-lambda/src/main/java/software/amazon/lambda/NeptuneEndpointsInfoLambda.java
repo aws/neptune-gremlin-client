@@ -23,12 +23,11 @@ import software.amazon.utils.EnvironmentVariableUtils;
 import software.amazon.utils.RegionUtils;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Scanner;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -37,6 +36,9 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
     private final ClusterEndpointsRefreshAgent refreshAgent;
     private final AtomicReference<NeptuneClusterMetadata> neptuneClusterMetadata = new AtomicReference<>();
     private final String suspendedEndpoints;
+
+    private static final String SUSPENDED_KEY = "neptune:suspended";
+    private static final String SUSPENDED_VALUE = "true";
 
     public NeptuneEndpointsInfoLambda() {
         this(
@@ -134,23 +136,43 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
     }
 
     private NeptuneClusterMetadata addAnnotations(NeptuneClusterMetadata clusterMetadata) {
+
+        List<String> suspended = Arrays.stream(suspendedEndpoints.split(","))
+                .map(String::trim)
+                .collect(Collectors.toList());
+
         for (NeptuneInstanceMetadata instance : clusterMetadata.getInstances()) {
-            if (suspendedEndpoints.equals("all")) {
-                setSuspended(instance);
-            } else if (suspendedEndpoints.equals("writer") && instance.isPrimary()) {
-                setSuspended(instance);
-            } else if (suspendedEndpoints.equals("reader") && instance.isReader()) {
+            for (String suspendedEndpoint : suspended) {
+
+                if (suspendedEndpoint.equals("all")) {
+                    setSuspended(instance);
+                } else if (suspendedEndpoint.equals("writer") && instance.isPrimary()) {
+                    setSuspended(instance);
+                } else if (suspendedEndpoint.equals("reader") && instance.isReader()) {
+                    setSuspended(instance);
+                } else if (suspendedEndpoint.equalsIgnoreCase(instance.getAddress())){
+                    setSuspended(instance);
+                } else if (suspendedEndpoint.equalsIgnoreCase(instance.getInstanceId())){
+                    setSuspended(instance);
+                }
+            }
+
+            if (instance.hasTag(SUSPENDED_KEY, SUSPENDED_VALUE)){
                 setSuspended(instance);
             }
         }
-        if (suspendedEndpoints.equals("all")){
-            setSuspended(clusterMetadata.getClusterEndpoint());
-            setSuspended(clusterMetadata.getReaderEndpoint());
-        } else if (suspendedEndpoints.equals("writer")){
-            setSuspended(clusterMetadata.getClusterEndpoint());
-        } else if (suspendedEndpoints.equals("reader")){
-            setSuspended(clusterMetadata.getReaderEndpoint());
+
+        for (String suspendedEndpoint : suspended) {
+            if (suspendedEndpoint.equals("all")){
+                setSuspended(clusterMetadata.getClusterEndpoint());
+                setSuspended(clusterMetadata.getReaderEndpoint());
+            } else if (suspendedEndpoint.equals("writer")){
+                setSuspended(clusterMetadata.getClusterEndpoint());
+            } else if (suspendedEndpoint.equals("reader")){
+                setSuspended(clusterMetadata.getReaderEndpoint());
+            }
         }
+
         return clusterMetadata;
     }
 
