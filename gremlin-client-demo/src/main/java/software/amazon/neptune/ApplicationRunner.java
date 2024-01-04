@@ -20,6 +20,7 @@ import com.github.rvesse.airline.help.Help;
         defaultCommand = Help.class,
         commands = {
                 RefreshAgentDemo.class,
+                RefreshEndpointsDemo.class,
                 TxDemo.class,
                 CustomSelectorsDemo.class,
                 RetryDemo.class,
