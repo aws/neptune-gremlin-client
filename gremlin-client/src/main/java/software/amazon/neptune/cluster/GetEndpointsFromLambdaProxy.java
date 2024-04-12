@@ -38,6 +38,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -90,7 +91,7 @@ class GetEndpointsFromLambdaProxy implements ClusterEndpointsFetchStrategy, Clus
         this.lambdaName = lambdaName;
         this.lambdaClient = createLambdaClient(region, iamProfile, credentials, clientConfiguration);
         this.retryConfig = new RetryConfigBuilder()
-                .retryOnSpecificExceptions(TooManyRequestsException.class)
+                .retryOnSpecificExceptions(TooManyRequestsException.class, TimeoutException.class)
                 .withMaxNumberOfTries(5)
                 .withDelayBetweenTries(100, ChronoUnit.MILLIS)
                 .withExponentialBackoff()
@@ -111,6 +112,15 @@ class GetEndpointsFromLambdaProxy implements ClusterEndpointsFetchStrategy, Clus
                     .withFunctionName(lambdaName)
                     .withPayload("\"\"");
             InvokeResult result = lambdaClient.invoke(invokeRequest);
+
+            if (StringUtils.isNotEmpty(result.getFunctionError())){
+                String payload = new String(result.getPayload().array());
+                if (payload.contains("Task timed out after")){
+                    throw new TimeoutException(String.format("Lambda proxy invocation timed out. Last error message: %s", payload));
+                } else {
+                    throw new RuntimeException(String.format("Unexpected error while invoking Lambda proxy: %s", payload));
+                }
+            }
 
             return NeptuneClusterMetadata.fromByteArray(result.getPayload().array());
         };
