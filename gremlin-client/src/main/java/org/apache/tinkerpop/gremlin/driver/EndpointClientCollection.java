@@ -48,6 +48,15 @@ class EndpointClientCollection implements Iterable<EndpointClient> {
         this.executorService = collectMetrics ? Executors.newSingleThreadExecutor() : null;
         this.connectionMetrics = collectMetrics ? initConnectionMetrics(endpointClients) : null;
         this.requestMetrics = collectMetrics ? initRequestMetrics(endpointClients) : null;
+        validateEndpointClients(endpointClients);
+    }
+
+    private void validateEndpointClients(List<EndpointClient> endpointClients) {
+        List<String> addresses = endpointClients.stream().map(c -> c.endpoint().getAddress()).collect(Collectors.toList());
+        Set<String> uniqueAddresses = new HashSet<>(addresses);
+        if (uniqueAddresses.size() != addresses.size()){
+            logger.warn("EndpointClientCollection contains multiple clients for same address: {}", addresses);
+        }
     }
 
     EndpointClientCollection() {
