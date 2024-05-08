@@ -650,7 +650,7 @@ For this solution to work you must set up host-based routing in your load balanc
 
 ### Using an AWS Application Load Balancer
 
-The following steps describe how to create an AWS Application Load Balancer in your Neptune VPC and configure it for host-based routing to individual database endpoints. Note, you **must** configure the [Preserve host headers](#step-3-preserve-host-headers) attribute on your load balancer for this solution to work with an IAM-auth eneabled database.
+The following steps describe how to create an AWS Application Load Balancer in your Neptune VPC and configure it for host-based routing to individual database endpoints. Note, you **must** configure the [Preserve host headers](#step-3-preserve-host-headers) attribute on your load balancer for this solution to work with an IAM-auth enabled database.
 
 #### Limitations
 
