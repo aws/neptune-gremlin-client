@@ -22,7 +22,7 @@ import com.evanlennick.retry4j.config.RetryConfigBuilder;
 import org.apache.tinkerpop.gremlin.driver.GremlinClient;
 import org.apache.tinkerpop.gremlin.driver.GremlinCluster;
 import org.apache.tinkerpop.gremlin.driver.remote.DriverRemoteConnection;
-import org.apache.tinkerpop.gremlin.driver.ser.Serializers;
+import org.apache.tinkerpop.gremlin.util.ser.Serializers;
 import org.apache.tinkerpop.gremlin.process.remote.RemoteConnectionException;
 import org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
@@ -61,7 +61,7 @@ public class NeptuneGremlinClientExampleLambda implements RequestStreamHandler {
                 .enableSsl(true)
                 .addContactPoints(refreshAgent.getEndpoints(ENDPOINT_TYPE))
                 .port(8182)
-                .serializer(Serializers.GRAPHBINARY_V1D0)
+                .serializer(Serializers.GRAPHBINARY_V1)
                 .minConnectionPoolSize(1)
                 .maxConnectionPoolSize(1)
                 .create();

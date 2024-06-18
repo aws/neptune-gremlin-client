@@ -20,7 +20,8 @@ package software.amazon.neptune.cluster;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import io.netty.handler.ssl.SslContext;
 import org.apache.tinkerpop.gremlin.driver.*;
-import org.apache.tinkerpop.gremlin.driver.ser.Serializers;
+import org.apache.tinkerpop.gremlin.util.ser.Serializers;
+import org.apache.tinkerpop.gremlin.util.*;
 
 import java.util.*;
 import java.util.function.Supplier;

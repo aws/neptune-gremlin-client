@@ -13,7 +13,8 @@ permissions and limitations under the License.
 package org.apache.tinkerpop.gremlin.driver;
 
 import io.netty.handler.ssl.SslContext;
-import org.apache.tinkerpop.gremlin.driver.ser.Serializers;
+import org.apache.tinkerpop.gremlin.util.ser.Serializers;
+import org.apache.tinkerpop.gremlin.util.*;
 
 import javax.net.ssl.TrustManager;
 import java.net.InetAddress;
@@ -34,7 +35,7 @@ public class GremlinClusterBuilder {
     private List<Endpoint> endpoints = new ArrayList<>();
     private int port = 8182;
     private String path = "/gremlin";
-    private MessageSerializer serializer = Serializers.GRAPHBINARY_V1D0.simpleInstance();
+    private MessageSerializer serializer = Serializers.GRAPHBINARY_V1.simpleInstance();
     private int nioPoolSize = Runtime.getRuntime().availableProcessors();
     private int workerPoolSize = Runtime.getRuntime().availableProcessors() * 2;
     private int minConnectionPoolSize = ConnectionPool.MIN_POOL_SIZE;
