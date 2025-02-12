@@ -12,12 +12,14 @@ permissions and limitations under the License.
 
 package software.amazon.neptune.cluster;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
-import com.amazonaws.services.neptune.AmazonNeptune;
-import com.amazonaws.services.neptune.AmazonNeptuneClientBuilder;
-import com.amazonaws.services.neptune.model.*;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.http.SdkHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.neptune.NeptuneClient;
+import software.amazon.awssdk.services.neptune.NeptuneClientBuilder;
+import software.amazon.awssdk.services.neptune.model.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 import org.slf4j.Logger;
@@ -38,9 +40,10 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
     private final String clusterId;
     private final String region;
     private final String iamProfile;
-    private final AWSCredentialsProvider credentials;
+    private final AwsCredentialsProvider credentials;
     private final AtomicReference<NeptuneClusterMetadata> cachedClusterMetadata = new AtomicReference<>();
-    private final ClientConfiguration clientConfiguration;
+    private final ClientOverrideConfiguration clientConfiguration;
+    private SdkHttpClient.Builder<?> httpClientBuilder;
 
     GetEndpointsFromNeptuneManagementApi(String clusterId) {
         this(clusterId, RegionUtils.getCurrentRegionName());
@@ -53,116 +56,131 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
 
 
     GetEndpointsFromNeptuneManagementApi(String clusterId, String region, String iamProfile) {
-        this(clusterId, region, iamProfile, null, null);
+        this(clusterId, region, iamProfile, null, null, null);
     }
 
-    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, String iamProfile, ClientConfiguration clientConfiguration) {
-        this(clusterId, region, iamProfile, null, clientConfiguration);
+    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, String iamProfile, ClientOverrideConfiguration clientConfiguration) {
+        this(clusterId, region, iamProfile, null, clientConfiguration, null);
     }
 
 
-    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AWSCredentialsProvider credentials) {
-        this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, null);
+    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AwsCredentialsProvider credentials) {
+        this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, null, null);
     }
 
-    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AWSCredentialsProvider credentials, ClientConfiguration clientConfiguration) {
-        this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, clientConfiguration);
+    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AwsCredentialsProvider credentials, ClientOverrideConfiguration clientConfiguration) {
+        this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, clientConfiguration, null);
     }
+
+    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AwsCredentialsProvider credentials, ClientOverrideConfiguration clientConfiguration, SdkHttpClient.Builder<?> httpClientBuilder) {
+        this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, clientConfiguration, null);
+    }
+
 
 
     private GetEndpointsFromNeptuneManagementApi(String clusterId,
                                                  String region,
                                                  String iamProfile,
-                                                 AWSCredentialsProvider credentials,
-                                                 ClientConfiguration clientConfiguration) {
+                                                 AwsCredentialsProvider credentials,
+                                                 ClientOverrideConfiguration clientConfiguration,
+                                                 SdkHttpClient.Builder<?> httpClientBuilder) {
         this.innerStrategy = new CommonClusterEndpointsFetchStrategy(this);
         this.clusterId = clusterId;
         this.region = region;
         this.iamProfile = iamProfile;
         this.credentials = credentials;
         this.clientConfiguration = clientConfiguration;
+        this.httpClientBuilder = httpClientBuilder;
     }
 
     @Override
     public NeptuneClusterMetadata refreshClusterMetadata() {
         try {
-            AmazonNeptuneClientBuilder builder = AmazonNeptuneClientBuilder.standard();
+            NeptuneClientBuilder builder = NeptuneClient.builder();
 
             if (clientConfiguration != null){
-                builder = builder.withClientConfiguration(clientConfiguration);
+                builder = builder.overrideConfiguration(clientConfiguration);
+            }
+            if (httpClientBuilder != null) {
+                builder = builder.httpClientBuilder(httpClientBuilder);
             }
 
             if (StringUtils.isNotEmpty(region)) {
-                builder = builder.withRegion(region);
+                builder = builder.region(Region.of(region));
             }
 
             if (credentials != null) {
-                builder = builder.withCredentials(credentials);
+                builder = builder.credentialsProvider(credentials);
             } else if (!iamProfile.equals(IamAuthConfig.DEFAULT_PROFILE)) {
-                builder = builder.withCredentials(new ProfileCredentialsProvider(iamProfile));
+                builder = builder.credentialsProvider(ProfileCredentialsProvider.create(iamProfile));
             }
 
-            AmazonNeptune neptune = builder.build();
+            NeptuneClient neptune = builder.build();
 
-            DescribeDBClustersResult describeDBClustersResult = neptune
-                    .describeDBClusters(new DescribeDBClustersRequest().withDBClusterIdentifier(clusterId));
+            DescribeDbClustersResponse describeDBClustersResult = neptune
+                    .describeDBClusters(DescribeDbClustersRequest.builder().dbClusterIdentifier(clusterId).build());
 
-            if (describeDBClustersResult.getDBClusters().isEmpty()) {
+            if (describeDBClustersResult.dbClusters().isEmpty()) {
                 throw new IllegalStateException(String.format("Unable to find cluster %s", clusterId));
             }
 
-            DBCluster dbCluster = describeDBClustersResult.getDBClusters().get(0);
+            DBCluster dbCluster = describeDBClustersResult.dbClusters().get(0);
 
-            String clusterEndpoint = dbCluster.getEndpoint();
-            String readerEndpoint = dbCluster.getReaderEndpoint();
+            String clusterEndpoint = dbCluster.endpoint();
+            String readerEndpoint = dbCluster.readerEndpoint();
 
-            List<DBClusterMember> dbClusterMembers = dbCluster.getDBClusterMembers();
+            List<DBClusterMember> dbClusterMembers = dbCluster.dbClusterMembers();
             Optional<DBClusterMember> clusterWriter = dbClusterMembers.stream()
                     .filter(DBClusterMember::isClusterWriter)
                     .findFirst();
 
-            String primary = clusterWriter.map(DBClusterMember::getDBInstanceIdentifier).orElse("");
+            String primary = clusterWriter.map(DBClusterMember::dbInstanceIdentifier).orElse("");
             List<String> replicas = dbClusterMembers.stream()
                     .filter(dbClusterMember -> !dbClusterMember.isClusterWriter())
-                    .map(DBClusterMember::getDBInstanceIdentifier)
+                    .map(DBClusterMember::dbInstanceIdentifier)
                     .collect(Collectors.toList());
 
-            DescribeDBInstancesRequest describeDBInstancesRequest = new DescribeDBInstancesRequest()
-                    .withFilters(Collections.singletonList(
-                            new Filter()
-                                    .withName("db-cluster-id")
-                                    .withValues(dbCluster.getDBClusterIdentifier())));
+            DescribeDbInstancesRequest describeDBInstancesRequest = DescribeDbInstancesRequest.builder()
+                    .filters(
+                            Collections.singletonList(
+                                    Filter.builder()
+                                            .name("db-cluster-id")
+                                            .values(dbCluster.dbClusterIdentifier())
+                                            .build()
+                            )
+                    )
+                    .build();
 
-            DescribeDBInstancesResult describeDBInstancesResult = neptune
+            DescribeDbInstancesResponse describeDBInstancesResult = neptune
                     .describeDBInstances(describeDBInstancesRequest);
 
             Collection<NeptuneInstanceMetadata> instances = new ArrayList<>();
-            describeDBInstancesResult.getDBInstances()
+            describeDBInstancesResult.dbInstances()
                     .forEach(c -> {
                                 String role = "unknown";
-                                if (primary.equals(c.getDBInstanceIdentifier())) {
+                                if (primary.equals(c.dbInstanceIdentifier())) {
                                     role = "writer";
                                 }
-                                if (replicas.contains(c.getDBInstanceIdentifier())) {
+                                if (replicas.contains(c.dbInstanceIdentifier())) {
                                     role = "reader";
                                 }
-                                String address = c.getEndpoint() == null ? null : c.getEndpoint().getAddress();
-                                Map<String, String> tags = getTags(c.getDBInstanceArn(), neptune);
+                                String address = c.endpoint() == null ? null : c.endpoint().address();
+                                Map<String, String> tags = getTags(c.dbInstanceArn(), neptune);
                                 Map<String, String> annotations = getAnnotations(tags);
                                 instances.add(
                                         new NeptuneInstanceMetadata()
-                                                .withInstanceId(c.getDBInstanceIdentifier())
+                                                .withInstanceId(c.dbInstanceIdentifier())
                                                 .withRole(role)
                                                 .withAddress(address)
-                                                .withStatus(c.getDBInstanceStatus())
-                                                .withAvailabilityZone(c.getAvailabilityZone())
-                                                .withInstanceType(c.getDBInstanceClass())
+                                                .withStatus(c.dbInstanceStatus())
+                                                .withAvailabilityZone(c.availabilityZone())
+                                                .withInstanceType(c.dbInstanceClass())
                                                 .withTags(tags)
                                                 .withAnnotations(annotations));
                             }
                     );
 
-            neptune.shutdown();
+            neptune.close();
 
             NeptuneClusterMetadata clusterMetadata = new NeptuneClusterMetadata()
                     .withInstances(instances)
@@ -173,8 +191,8 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
 
             return clusterMetadata;
 
-        } catch (AmazonNeptuneException e) {
-            if (e.getErrorCode().equals("Throttling")) {
+        } catch (NeptuneException e) {
+            if (e.isThrottlingException()) {
                 logger.warn("Calls to the Neptune Management API are being throttled. Reduce the refresh rate and stagger refresh agent requests, or use a NeptuneEndpointsInfoLambda proxy.");
                 NeptuneClusterMetadata clusterMetadata = cachedClusterMetadata.get();
                 if (clusterMetadata != null) {
@@ -210,14 +228,15 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
         return innerStrategy.getEndpoints(selectors, refresh);
     }
 
-    private Map<String, String> getTags(String dbInstanceArn, AmazonNeptune neptune) {
+    private Map<String, String> getTags(String dbInstanceArn, NeptuneClient neptune) {
 
         List<Tag> tagList = neptune.listTagsForResource(
-                new ListTagsForResourceRequest()
-                        .withResourceName(dbInstanceArn)).getTagList();
+                ListTagsForResourceRequest.builder()
+                        .resourceName(dbInstanceArn)
+                        .build()).tagList();
 
         Map<String, String> tags = new HashMap<>();
-        tagList.forEach(t -> tags.put(t.getKey(), t.getValue()));
+        tagList.forEach(t -> tags.put(t.key(), t.value()));
 
         return tags;
     }

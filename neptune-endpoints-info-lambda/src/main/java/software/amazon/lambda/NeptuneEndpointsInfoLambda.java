@@ -18,6 +18,7 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
 import org.apache.tinkerpop.gremlin.driver.Endpoint;
 import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.neptune.cluster.*;
 import software.amazon.utils.EnvironmentVariableUtils;
 import software.amazon.utils.RegionUtils;
@@ -52,7 +53,7 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
 
         this.refreshAgent = ClusterEndpointsRefreshAgent.managementApi(clusterId,
                 RegionUtils.getCurrentRegionName(),
-                new DefaultAWSCredentialsProviderChain());
+                DefaultCredentialsProvider.create());
         this.neptuneClusterMetadata.set(refreshAgent.getClusterMetadata());
         this.suspendedEndpoints = suspendedEndpoints.toLowerCase();
 

@@ -18,10 +18,12 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 package software.amazon.neptune.cluster;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.neptune.auth.credentials.V1toV2CredentialsProvider;
 import io.netty.handler.ssl.SslContext;
 import org.apache.tinkerpop.gremlin.driver.*;
 import org.apache.tinkerpop.gremlin.util.ser.Serializers;
 import org.apache.tinkerpop.gremlin.util.*;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 import java.util.*;
 import java.util.function.Supplier;
@@ -45,7 +47,7 @@ public class NeptuneGremlinClusterBuilder {
     private String iamProfile = IamAuthConfig.DEFAULT_PROFILE;
     private String serviceRegion = "";
     private HandshakeInterceptor interceptor = null;
-    private AWSCredentialsProvider credentials = null;
+    private AwsCredentialsProvider credentials = null;
     private EndpointFilter endpointFilter = new SuspendedEndpoints();
 
     private NeptuneGremlinClusterBuilder() {
@@ -367,7 +369,12 @@ public class NeptuneGremlinClusterBuilder {
         return this;
     }
 
-    public NeptuneGremlinClusterBuilder credentials(final AWSCredentialsProvider credentials) {
+    public NeptuneGremlinClusterBuilder credentials(final AWSCredentialsProvider v1AwsCredentialProvider) {
+        this.credentials = V1toV2CredentialsProvider.create(v1AwsCredentialProvider);
+        return this;
+    }
+
+    public NeptuneGremlinClusterBuilder credentials(final AwsCredentialsProvider credentials) {
         this.credentials = credentials;
         return this;
     }

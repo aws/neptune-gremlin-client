@@ -17,8 +17,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 package software.amazon.neptune.cluster;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
 import org.apache.tinkerpop.gremlin.driver.*;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 import java.util.stream.Collectors;
 
@@ -32,7 +32,7 @@ class HandshakeInterceptorConfigurator implements TopologyAwareBuilderConfigurat
     private final String proxyAddress;
     private final String serviceRegion;
     private final String iamProfile;
-    private final AWSCredentialsProvider credentials;
+    private final AwsCredentialsProvider credentials;
 
     private final boolean removeHostHeader;
 
@@ -44,7 +44,7 @@ class HandshakeInterceptorConfigurator implements TopologyAwareBuilderConfigurat
                                      String proxyAddress,
                                      String serviceRegion,
                                      String iamProfile,
-                                     AWSCredentialsProvider credentials,
+                                     AwsCredentialsProvider credentials,
                                      boolean removeHostHeader) {
         this.isDirectConnection = isDirectConnection;
         this.interceptor = interceptor;

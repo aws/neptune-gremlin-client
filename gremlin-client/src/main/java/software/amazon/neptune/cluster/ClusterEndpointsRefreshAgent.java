@@ -12,19 +12,21 @@ permissions and limitations under the License.
 
 package software.amazon.neptune.cluster;
 
-import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.neptune.auth.credentials.V1toV2CredentialsProvider;
 import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 import org.apache.tinkerpop.gremlin.driver.GremlinClient;
 import org.apache.tinkerpop.gremlin.driver.RefreshTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.utils.RegionUtils;
 
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -61,12 +63,22 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
 
     public static ClusterEndpointsRefreshAgent lambdaProxy(String lambdaName, String region, AWSCredentialsProvider credentialsProvider) {
         return new ClusterEndpointsRefreshAgent(
+                new GetEndpointsFromLambdaProxy(lambdaName, region, V1toV2CredentialsProvider.create(credentialsProvider)));
+    }
+
+    public static ClusterEndpointsRefreshAgent lambdaProxy(String lambdaName, String region, AwsCredentialsProvider credentialsProvider) {
+        return new ClusterEndpointsRefreshAgent(
                 new GetEndpointsFromLambdaProxy(lambdaName, region, credentialsProvider));
     }
 
-    public static ClusterEndpointsRefreshAgent lambdaProxy(String lambdaName, String region, AWSCredentialsProvider credentialsProvider, ClientConfiguration clientConfiguration) {
+    public static ClusterEndpointsRefreshAgent lambdaProxy(String lambdaName, String region, AwsCredentialsProvider credentialsProvider, ClientOverrideConfiguration clientConfiguration) {
         return new ClusterEndpointsRefreshAgent(
                 new GetEndpointsFromLambdaProxy(lambdaName, region, credentialsProvider, clientConfiguration));
+    }
+
+    public static ClusterEndpointsRefreshAgent lambdaProxy(String lambdaName, String region, AwsCredentialsProvider credentialsProvider, ClientOverrideConfiguration clientConfiguration, SdkHttpClient.Builder<?> httpClientBuilder) {
+        return new ClusterEndpointsRefreshAgent(
+                new GetEndpointsFromLambdaProxy(lambdaName, region, credentialsProvider, clientConfiguration, httpClientBuilder));
     }
 
     public static ClusterEndpointsRefreshAgent lambdaProxy(String lambdaName, String region, String iamProfile) {
@@ -74,7 +86,12 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
                 new GetEndpointsFromLambdaProxy(lambdaName, region, iamProfile));
     }
 
-    public static ClusterEndpointsRefreshAgent lambdaProxy(String lambdaName, String region, String iamProfile, ClientConfiguration clientConfiguration) {
+    public static ClusterEndpointsRefreshAgent lambdaProxy(String lambdaName, String region, String iamProfile, ClientOverrideConfiguration clientConfiguration, SdkHttpClient.Builder<?> httpClientBuilder) {
+        return new ClusterEndpointsRefreshAgent(
+                new GetEndpointsFromLambdaProxy(lambdaName, region, iamProfile, clientConfiguration, httpClientBuilder));
+    }
+
+    public static ClusterEndpointsRefreshAgent lambdaProxy(String lambdaName, String region, String iamProfile, ClientOverrideConfiguration clientConfiguration) {
         return new ClusterEndpointsRefreshAgent(
                 new GetEndpointsFromLambdaProxy(lambdaName, region, iamProfile, clientConfiguration));
     }
@@ -89,12 +106,22 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
 
     public static ClusterEndpointsRefreshAgent managementApi(String clusterId, String region, AWSCredentialsProvider credentialsProvider) {
         return new ClusterEndpointsRefreshAgent(
+                new GetEndpointsFromNeptuneManagementApi(clusterId, region, V1toV2CredentialsProvider.create(credentialsProvider)));
+    }
+
+    public static ClusterEndpointsRefreshAgent managementApi(String clusterId, String region, AwsCredentialsProvider credentialsProvider) {
+        return new ClusterEndpointsRefreshAgent(
                 new GetEndpointsFromNeptuneManagementApi(clusterId, region, credentialsProvider));
     }
 
-    public static ClusterEndpointsRefreshAgent managementApi(String clusterId, String region, AWSCredentialsProvider credentialsProvider, ClientConfiguration clientConfiguration) {
+    public static ClusterEndpointsRefreshAgent managementApi(String clusterId, String region, AwsCredentialsProvider credentialsProvider, ClientOverrideConfiguration clientConfiguration) {
         return new ClusterEndpointsRefreshAgent(
                 new GetEndpointsFromNeptuneManagementApi(clusterId, region, credentialsProvider, clientConfiguration));
+    }
+
+    public static ClusterEndpointsRefreshAgent managementApi(String clusterId, String region, AwsCredentialsProvider credentialsProvider, ClientOverrideConfiguration clientConfiguration, SdkHttpClient.Builder<?> httpClientBuilder) {
+        return new ClusterEndpointsRefreshAgent(
+                new GetEndpointsFromNeptuneManagementApi(clusterId, region, credentialsProvider, clientConfiguration, httpClientBuilder));
     }
 
     public static ClusterEndpointsRefreshAgent managementApi(String clusterId, String region, String iamProfile) {
@@ -102,7 +129,7 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
                 new GetEndpointsFromNeptuneManagementApi(clusterId, region, iamProfile));
     }
 
-    public static ClusterEndpointsRefreshAgent managementApi(String clusterId, String region, String iamProfile, ClientConfiguration clientConfiguration ) {
+    public static ClusterEndpointsRefreshAgent managementApi(String clusterId, String region, String iamProfile, ClientOverrideConfiguration clientConfiguration ) {
         return new ClusterEndpointsRefreshAgent(
                 new GetEndpointsFromNeptuneManagementApi(clusterId, region, iamProfile, clientConfiguration));
     }

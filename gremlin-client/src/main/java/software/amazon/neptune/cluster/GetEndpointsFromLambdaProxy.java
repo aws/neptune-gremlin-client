@@ -12,22 +12,26 @@ permissions and limitations under the License.
 
 package software.amazon.neptune.cluster;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
-import com.amazonaws.services.lambda.AWSLambda;
-import com.amazonaws.services.lambda.AWSLambdaClientBuilder;
-import com.amazonaws.services.lambda.model.InvokeRequest;
-import com.amazonaws.services.lambda.model.InvokeResult;
-import com.amazonaws.services.lambda.model.TooManyRequestsException;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+
+import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.http.SdkHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.lambda.LambdaClient;
+import software.amazon.awssdk.services.lambda.LambdaClientBuilder;
+import software.amazon.awssdk.services.lambda.model.InvokeRequest;
+import software.amazon.awssdk.services.lambda.model.InvokeResponse;
+import software.amazon.awssdk.services.lambda.model.TooManyRequestsException;
 import com.evanlennick.retry4j.CallExecutor;
 import com.evanlennick.retry4j.CallExecutorBuilder;
 import com.evanlennick.retry4j.Status;
 import com.evanlennick.retry4j.config.RetryConfig;
 import com.evanlennick.retry4j.config.RetryConfigBuilder;
 import com.evanlennick.retry4j.exception.UnexpectedException;
-import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 import org.slf4j.Logger;
@@ -50,7 +54,7 @@ class GetEndpointsFromLambdaProxy implements ClusterEndpointsFetchStrategy, Clus
 
     private final ClusterEndpointsFetchStrategy innerStrategy;
     private final String lambdaName;
-    private final AWSLambda lambdaClient;
+    private final LambdaClient lambdaClient;
     private final RetryConfig retryConfig;
     private final AtomicReference<NeptuneClusterMetadata> cachedClusterMetadata = new AtomicReference<>();
     private final AtomicLong lastRefreshTime = new AtomicLong(System.currentTimeMillis());
@@ -66,30 +70,38 @@ class GetEndpointsFromLambdaProxy implements ClusterEndpointsFetchStrategy, Clus
 
 
     GetEndpointsFromLambdaProxy(String lambdaName, String region, String iamProfile) {
-        this(lambdaName, region, iamProfile, null, null);
+        this(lambdaName, region, iamProfile, null, null, null);
     }
 
-    GetEndpointsFromLambdaProxy(String lambdaName, String region, String iamProfile, ClientConfiguration clientConfiguration) {
-        this(lambdaName, region, iamProfile, null, clientConfiguration);
+    GetEndpointsFromLambdaProxy(String lambdaName, String region, String iamProfile, ClientOverrideConfiguration clientConfiguration) {
+        this(lambdaName, region, iamProfile, null, clientConfiguration, null);
     }
 
-
-    GetEndpointsFromLambdaProxy(String lambdaName, String region, AWSCredentialsProvider credentials) {
-        this(lambdaName, region, IamAuthConfig.DEFAULT_PROFILE, credentials, null);
+    GetEndpointsFromLambdaProxy(String lambdaName, String region, String iamProfile, ClientOverrideConfiguration clientConfiguration, SdkHttpClient.Builder<?> httpClientBuilder) {
+        this(lambdaName, region, iamProfile, null, clientConfiguration, httpClientBuilder);
     }
 
-    GetEndpointsFromLambdaProxy(String lambdaName, String region, AWSCredentialsProvider credentials, ClientConfiguration clientConfiguration) {
-        this(lambdaName, region, IamAuthConfig.DEFAULT_PROFILE, credentials, clientConfiguration);
+    GetEndpointsFromLambdaProxy(String lambdaName, String region, AwsCredentialsProvider credentials) {
+        this(lambdaName, region, IamAuthConfig.DEFAULT_PROFILE, credentials, null, null);
+    }
+
+    GetEndpointsFromLambdaProxy(String lambdaName, String region, AwsCredentialsProvider credentials, ClientOverrideConfiguration clientConfiguration) {
+        this(lambdaName, region, IamAuthConfig.DEFAULT_PROFILE, credentials, clientConfiguration, null);
+    }
+
+    GetEndpointsFromLambdaProxy(String lambdaName, String region, AwsCredentialsProvider credentials, ClientOverrideConfiguration clientConfiguration, SdkHttpClient.Builder<?> httpClientBuilder) {
+        this(lambdaName, region, IamAuthConfig.DEFAULT_PROFILE, credentials, clientConfiguration, httpClientBuilder);
     }
 
     private GetEndpointsFromLambdaProxy(String lambdaName,
                                         String region,
                                         String iamProfile,
-                                        AWSCredentialsProvider credentials,
-                                        ClientConfiguration clientConfiguration) {
+                                        AwsCredentialsProvider credentials,
+                                        ClientOverrideConfiguration clientOverrideConfiguration,
+                                        SdkHttpClient.Builder<?> httpClientBuilder) {
         this.innerStrategy = new CommonClusterEndpointsFetchStrategy(this);
         this.lambdaName = lambdaName;
-        this.lambdaClient = createLambdaClient(region, iamProfile, credentials, clientConfiguration);
+        this.lambdaClient = createLambdaClient(region, iamProfile, credentials, clientOverrideConfiguration, httpClientBuilder);
         this.retryConfig = new RetryConfigBuilder()
                 .retryOnSpecificExceptions(TooManyRequestsException.class, TimeoutException.class)
                 .withMaxNumberOfTries(5)
@@ -108,13 +120,14 @@ class GetEndpointsFromLambdaProxy implements ClusterEndpointsFetchStrategy, Clus
 
         Callable<NeptuneClusterMetadata> query = () -> {
 
-            InvokeRequest invokeRequest = new InvokeRequest()
-                    .withFunctionName(lambdaName)
-                    .withPayload("\"\"");
-            InvokeResult result = lambdaClient.invoke(invokeRequest);
+            InvokeRequest invokeRequest = InvokeRequest.builder()
+                    .functionName(lambdaName)
+                    .payload(SdkBytes.fromUtf8String("\"\""))
+                    .build();
+            InvokeResponse result = lambdaClient.invoke(invokeRequest);
 
-            if (StringUtils.isNotEmpty(result.getFunctionError())){
-                String payload = new String(result.getPayload().array());
+            if (StringUtils.isNotEmpty(result.functionError())){
+                String payload = result.payload().asUtf8String();
                 if (payload.contains("Task timed out after")){
                     throw new TimeoutException(String.format("Lambda proxy invocation timed out. Last error message: %s", payload));
                 } else {
@@ -122,9 +135,8 @@ class GetEndpointsFromLambdaProxy implements ClusterEndpointsFetchStrategy, Clus
                 }
             }
 
-            return NeptuneClusterMetadata.fromByteArray(result.getPayload().array());
+            return NeptuneClusterMetadata.fromByteArray(result.payload().asByteArray());
         };
-
         @SuppressWarnings("unchecked")
         CallExecutor<NeptuneClusterMetadata> executor =
                 new CallExecutorBuilder<NeptuneClusterMetadata>().config(retryConfig).build();
@@ -174,27 +186,27 @@ class GetEndpointsFromLambdaProxy implements ClusterEndpointsFetchStrategy, Clus
         return (refreshTime == now);
     }
 
-    private AWSLambda createLambdaClient(String region, String iamProfile, AWSCredentialsProvider credentials, ClientConfiguration clientConfiguration) {
+    private LambdaClient createLambdaClient(String region, String iamProfile, AwsCredentialsProvider credentials, ClientOverrideConfiguration clientConfiguration, SdkHttpClient.Builder<?> httpClientBuilder) {
 
-        AWSLambdaClientBuilder builder = AWSLambdaClientBuilder.standard();
+        LambdaClientBuilder builder = LambdaClient.builder();
 
         if (clientConfiguration != null){
-            builder = builder.withClientConfiguration(clientConfiguration);
+            builder = builder.overrideConfiguration(clientConfiguration);
         }
 
         if (credentials != null) {
-            builder = builder.withCredentials(credentials);
+            builder = builder.credentialsProvider(credentials);
         } else {
 
             if (!iamProfile.equals(IamAuthConfig.DEFAULT_PROFILE)) {
-                builder = builder.withCredentials(new ProfileCredentialsProvider(iamProfile));
+                builder = builder.credentialsProvider(ProfileCredentialsProvider.create(iamProfile));
             } else {
-                builder = builder.withCredentials(DefaultAWSCredentialsProviderChain.getInstance());
+                builder = builder.credentialsProvider(DefaultCredentialsProvider.create());
             }
         }
 
         if (StringUtils.isNotEmpty(region)) {
-            builder = builder.withRegion(region);
+            builder = builder.region(Region.of(region));
         }
 
         return builder.build();

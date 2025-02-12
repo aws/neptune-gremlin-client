@@ -12,17 +12,17 @@ permissions and limitations under the License.
 
 package software.amazon.utils;
 
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import org.apache.commons.lang3.StringUtils;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 
 public class RegionUtils {
     public static String getCurrentRegionName(){
         String result = EnvironmentVariableUtils.getOptionalEnv("AWS_REGION", null);
         if (StringUtils.isEmpty(result)) {
-            Region currentRegion = Regions.getCurrentRegion();
+            Region currentRegion = DefaultAwsRegionProviderChain.builder().build().getRegion();
             if (currentRegion != null) {
-                result = currentRegion.getName();
+                result = currentRegion.id();
             }
         }
         return result;
