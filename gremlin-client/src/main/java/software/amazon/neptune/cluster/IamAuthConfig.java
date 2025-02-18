@@ -17,13 +17,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 package software.amazon.neptune.cluster;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSCredentialsProviderChain;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProviderChain;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 
 import java.util.*;
 
@@ -42,7 +42,7 @@ class IamAuthConfig {
     private final boolean removeHostHeaderAfterSigning;
     private final String serviceRegion;
     private final String iamProfile;
-    private final AWSCredentialsProvider credentials;
+    private final AwsCredentialsProvider credentials;
     private final Random random = new Random(System.currentTimeMillis());
 
     IamAuthConfig(Collection<String> endpoints,
@@ -52,7 +52,7 @@ class IamAuthConfig {
                   boolean removeHostHeaderAfterSigning,
                   String serviceRegion,
                   String iamProfile,
-                  AWSCredentialsProvider credentials) {
+                  AwsCredentialsProvider credentials) {
         this.endpoints = new ArrayList<>(endpoints);
         this.port = port;
         this.enableIamAuth = enableIamAuth;
@@ -67,13 +67,13 @@ class IamAuthConfig {
         return serviceRegion;
     }
 
-    public AWSCredentialsProviderChain credentialsProviderChain() {
+    public AwsCredentialsProviderChain credentialsProviderChain() {
         if (credentials != null) {
-            return new AWSCredentialsProviderChain(Collections.singletonList(credentials));
+            return AwsCredentialsProviderChain.of(credentials);
         } else if (!iamProfile.equals(DEFAULT_PROFILE)) {
-            return new AWSCredentialsProviderChain(Collections.singletonList(new ProfileCredentialsProvider(iamProfile)));
+            return AwsCredentialsProviderChain.of(ProfileCredentialsProvider.create(iamProfile));
         } else {
-            return new DefaultAWSCredentialsProviderChain();
+            return AwsCredentialsProviderChain.of(DefaultCredentialsProvider.create());
         }
     }
 
@@ -127,7 +127,7 @@ class IamAuthConfig {
         private boolean removeHostHeaderAfterSigning = false;
         private String serviceRegion = "";
         private String iamProfile = DEFAULT_PROFILE;
-        private AWSCredentialsProvider credentials = null;
+        private AwsCredentialsProvider credentials = null;
 
         public IamAuthConfigBuilder addNeptuneEndpoints(String... endpoints) {
             this.endpoints.addAll(Arrays.asList(endpoints));
@@ -154,7 +154,7 @@ class IamAuthConfig {
             return this;
         }
 
-        public IamAuthConfigBuilder setCredentials(AWSCredentialsProvider credentials) {
+        public IamAuthConfigBuilder setCredentials(AwsCredentialsProvider credentials) {
             this.credentials = credentials;
             return this;
         }

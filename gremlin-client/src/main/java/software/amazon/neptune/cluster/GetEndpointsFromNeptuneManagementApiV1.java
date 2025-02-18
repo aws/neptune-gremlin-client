@@ -12,14 +12,12 @@ permissions and limitations under the License.
 
 package software.amazon.neptune.cluster;
 
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
-import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.http.SdkHttpClient;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.neptune.NeptuneClient;
-import software.amazon.awssdk.services.neptune.NeptuneClientBuilder;
-import software.amazon.awssdk.services.neptune.model.*;
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.services.neptune.AmazonNeptune;
+import com.amazonaws.services.neptune.AmazonNeptuneClientBuilder;
+import com.amazonaws.services.neptune.model.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 import org.slf4j.Logger;
@@ -30,7 +28,8 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrategy, ClusterMetadataSupplier {
+@Deprecated
+class GetEndpointsFromNeptuneManagementApiV1 implements ClusterEndpointsFetchStrategy, ClusterMetadataSupplier {
 
     private static final Logger logger = LoggerFactory.getLogger(GetEndpointsFromNeptuneManagementApi.class);
 
@@ -40,147 +39,134 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
     private final String clusterId;
     private final String region;
     private final String iamProfile;
-    private final AwsCredentialsProvider credentials;
+    private final AWSCredentialsProvider credentials;
     private final AtomicReference<NeptuneClusterMetadata> cachedClusterMetadata = new AtomicReference<>();
-    private final ClientOverrideConfiguration clientConfiguration;
-    private SdkHttpClient.Builder<?> httpClientBuilder;
+    private final ClientConfiguration clientConfiguration;
 
-    GetEndpointsFromNeptuneManagementApi(String clusterId) {
+    GetEndpointsFromNeptuneManagementApiV1(String clusterId) {
         this(clusterId, RegionUtils.getCurrentRegionName());
     }
 
 
-    GetEndpointsFromNeptuneManagementApi(String clusterId, String region) {
+    GetEndpointsFromNeptuneManagementApiV1(String clusterId, String region) {
         this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE);
     }
 
 
-    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, String iamProfile) {
-        this(clusterId, region, iamProfile, null, null, null);
+    GetEndpointsFromNeptuneManagementApiV1(String clusterId, String region, String iamProfile) {
+        this(clusterId, region, iamProfile, null, null);
     }
 
-    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, String iamProfile, ClientOverrideConfiguration clientConfiguration) {
-        this(clusterId, region, iamProfile, null, clientConfiguration, null);
-    }
-
-
-    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AwsCredentialsProvider credentials) {
-        this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, null, null);
-    }
-
-    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AwsCredentialsProvider credentials, ClientOverrideConfiguration clientConfiguration) {
-        this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, clientConfiguration, null);
-    }
-
-    GetEndpointsFromNeptuneManagementApi(String clusterId, String region, AwsCredentialsProvider credentials, ClientOverrideConfiguration clientConfiguration, SdkHttpClient.Builder<?> httpClientBuilder) {
-        this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, clientConfiguration, null);
+    GetEndpointsFromNeptuneManagementApiV1(String clusterId, String region, String iamProfile, ClientConfiguration clientConfiguration) {
+        this(clusterId, region, iamProfile, null, clientConfiguration);
     }
 
 
+    GetEndpointsFromNeptuneManagementApiV1(String clusterId, String region, AWSCredentialsProvider credentials) {
+        this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, null);
+    }
 
-    private GetEndpointsFromNeptuneManagementApi(String clusterId,
+    GetEndpointsFromNeptuneManagementApiV1(String clusterId, String region, AWSCredentialsProvider credentials, ClientConfiguration clientConfiguration) {
+        this(clusterId, region, IamAuthConfig.DEFAULT_PROFILE, credentials, clientConfiguration);
+    }
+
+
+    private GetEndpointsFromNeptuneManagementApiV1(String clusterId,
                                                  String region,
                                                  String iamProfile,
-                                                 AwsCredentialsProvider credentials,
-                                                 ClientOverrideConfiguration clientConfiguration,
-                                                 SdkHttpClient.Builder<?> httpClientBuilder) {
+                                                 AWSCredentialsProvider credentials,
+                                                 ClientConfiguration clientConfiguration) {
+
+        logger.warn("GetEndpointsFromNeptuneManagementApiV1 is deprecated - consider using GetEndpointsFromNeptuneManagementApi instead");
+
         this.innerStrategy = new CommonClusterEndpointsFetchStrategy(this);
         this.clusterId = clusterId;
         this.region = region;
         this.iamProfile = iamProfile;
         this.credentials = credentials;
         this.clientConfiguration = clientConfiguration;
-        this.httpClientBuilder = httpClientBuilder;
     }
 
     @Override
     public NeptuneClusterMetadata refreshClusterMetadata() {
         try {
-            NeptuneClientBuilder builder = NeptuneClient.builder();
+            AmazonNeptuneClientBuilder builder = AmazonNeptuneClientBuilder.standard();
 
             if (clientConfiguration != null){
-                builder = builder.overrideConfiguration(clientConfiguration);
-            }
-            if (httpClientBuilder != null) {
-                builder = builder.httpClientBuilder(httpClientBuilder);
+                builder = builder.withClientConfiguration(clientConfiguration);
             }
 
             if (StringUtils.isNotEmpty(region)) {
-                builder = builder.region(Region.of(region));
+                builder = builder.withRegion(region);
             }
 
             if (credentials != null) {
-                builder = builder.credentialsProvider(credentials);
+                builder = builder.withCredentials(credentials);
             } else if (!iamProfile.equals(IamAuthConfig.DEFAULT_PROFILE)) {
-                builder = builder.credentialsProvider(ProfileCredentialsProvider.create(iamProfile));
+                builder = builder.withCredentials(new ProfileCredentialsProvider(iamProfile));
             }
 
-            NeptuneClient neptune = builder.build();
+            AmazonNeptune neptune = builder.build();
 
-            DescribeDbClustersResponse describeDBClustersResult = neptune
-                    .describeDBClusters(DescribeDbClustersRequest.builder().dbClusterIdentifier(clusterId).build());
+            DescribeDBClustersResult describeDBClustersResult = neptune
+                    .describeDBClusters(new DescribeDBClustersRequest().withDBClusterIdentifier(clusterId));
 
-            if (describeDBClustersResult.dbClusters().isEmpty()) {
+            if (describeDBClustersResult.getDBClusters().isEmpty()) {
                 throw new IllegalStateException(String.format("Unable to find cluster %s", clusterId));
             }
 
-            DBCluster dbCluster = describeDBClustersResult.dbClusters().get(0);
+            DBCluster dbCluster = describeDBClustersResult.getDBClusters().get(0);
 
-            String clusterEndpoint = dbCluster.endpoint();
-            String readerEndpoint = dbCluster.readerEndpoint();
+            String clusterEndpoint = dbCluster.getEndpoint();
+            String readerEndpoint = dbCluster.getReaderEndpoint();
 
-            List<DBClusterMember> dbClusterMembers = dbCluster.dbClusterMembers();
+            List<DBClusterMember> dbClusterMembers = dbCluster.getDBClusterMembers();
             Optional<DBClusterMember> clusterWriter = dbClusterMembers.stream()
                     .filter(DBClusterMember::isClusterWriter)
                     .findFirst();
 
-            String primary = clusterWriter.map(DBClusterMember::dbInstanceIdentifier).orElse("");
+            String primary = clusterWriter.map(DBClusterMember::getDBInstanceIdentifier).orElse("");
             List<String> replicas = dbClusterMembers.stream()
                     .filter(dbClusterMember -> !dbClusterMember.isClusterWriter())
-                    .map(DBClusterMember::dbInstanceIdentifier)
+                    .map(DBClusterMember::getDBInstanceIdentifier)
                     .collect(Collectors.toList());
 
-            DescribeDbInstancesRequest describeDBInstancesRequest = DescribeDbInstancesRequest.builder()
-                    .filters(
-                            Collections.singletonList(
-                                    Filter.builder()
-                                            .name("db-cluster-id")
-                                            .values(dbCluster.dbClusterIdentifier())
-                                            .build()
-                            )
-                    )
-                    .build();
+            DescribeDBInstancesRequest describeDBInstancesRequest = new DescribeDBInstancesRequest()
+                    .withFilters(Collections.singletonList(
+                            new Filter()
+                                    .withName("db-cluster-id")
+                                    .withValues(dbCluster.getDBClusterIdentifier())));
 
-            DescribeDbInstancesResponse describeDBInstancesResult = neptune
+            DescribeDBInstancesResult describeDBInstancesResult = neptune
                     .describeDBInstances(describeDBInstancesRequest);
 
             Collection<NeptuneInstanceMetadata> instances = new ArrayList<>();
-            describeDBInstancesResult.dbInstances()
+            describeDBInstancesResult.getDBInstances()
                     .forEach(c -> {
                                 String role = "unknown";
-                                if (primary.equals(c.dbInstanceIdentifier())) {
+                                if (primary.equals(c.getDBInstanceIdentifier())) {
                                     role = "writer";
                                 }
-                                if (replicas.contains(c.dbInstanceIdentifier())) {
+                                if (replicas.contains(c.getDBInstanceIdentifier())) {
                                     role = "reader";
                                 }
-                                String address = c.endpoint() == null ? null : c.endpoint().address();
-                                Map<String, String> tags = getTags(c.dbInstanceArn(), neptune);
+                                String address = c.getEndpoint() == null ? null : c.getEndpoint().getAddress();
+                                Map<String, String> tags = getTags(c.getDBInstanceArn(), neptune);
                                 Map<String, String> annotations = getAnnotations(tags);
                                 instances.add(
                                         new NeptuneInstanceMetadata()
-                                                .withInstanceId(c.dbInstanceIdentifier())
+                                                .withInstanceId(c.getDBInstanceIdentifier())
                                                 .withRole(role)
                                                 .withAddress(address)
-                                                .withStatus(c.dbInstanceStatus())
-                                                .withAvailabilityZone(c.availabilityZone())
-                                                .withInstanceType(c.dbInstanceClass())
+                                                .withStatus(c.getDBInstanceStatus())
+                                                .withAvailabilityZone(c.getAvailabilityZone())
+                                                .withInstanceType(c.getDBInstanceClass())
                                                 .withTags(tags)
                                                 .withAnnotations(annotations));
                             }
                     );
 
-            neptune.close();
+            neptune.shutdown();
 
             NeptuneClusterMetadata clusterMetadata = new NeptuneClusterMetadata()
                     .withInstances(instances)
@@ -191,8 +177,8 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
 
             return clusterMetadata;
 
-        } catch (NeptuneException e) {
-            if (e.isThrottlingException()) {
+        } catch (AmazonNeptuneException e) {
+            if (e.getErrorCode().equals("Throttling")) {
                 logger.warn("Calls to the Neptune Management API are being throttled. Reduce the refresh rate and stagger refresh agent requests, or use a NeptuneEndpointsInfoLambda proxy.");
                 NeptuneClusterMetadata clusterMetadata = cachedClusterMetadata.get();
                 if (clusterMetadata != null) {
@@ -228,15 +214,14 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
         return innerStrategy.getEndpoints(selectors, refresh);
     }
 
-    private Map<String, String> getTags(String dbInstanceArn, NeptuneClient neptune) {
+    private Map<String, String> getTags(String dbInstanceArn, AmazonNeptune neptune) {
 
         List<Tag> tagList = neptune.listTagsForResource(
-                ListTagsForResourceRequest.builder()
-                        .resourceName(dbInstanceArn)
-                        .build()).tagList();
+                new ListTagsForResourceRequest()
+                        .withResourceName(dbInstanceArn)).getTagList();
 
         Map<String, String> tags = new HashMap<>();
-        tagList.forEach(t -> tags.put(t.key(), t.value()));
+        tagList.forEach(t -> tags.put(t.getKey(), t.getValue()));
 
         return tags;
     }

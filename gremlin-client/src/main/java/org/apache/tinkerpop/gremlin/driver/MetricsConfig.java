@@ -12,7 +12,6 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import com.amazonaws.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.utils.EnvironmentVariableUtils;
@@ -44,12 +43,12 @@ class MetricsConfig {
         Boolean enableMetricsSys = null;
 
         String envVar = EnvironmentVariableUtils.getOptionalEnv(PROPERTY_NAME, null);
-        if (!StringUtils.isNullOrEmpty(envVar)) {
+        if (!(envVar == null || envVar.isEmpty())) {
             enableMetricsEnv = Boolean.parseBoolean(envVar);
         }
 
         String sysProp = System.getProperty(PROPERTY_NAME, null);
-        if (!StringUtils.isNullOrEmpty(sysProp)) {
+        if (!(sysProp == null || sysProp.isEmpty())) {
             enableMetricsSys = Boolean.parseBoolean(sysProp);
         }
 
