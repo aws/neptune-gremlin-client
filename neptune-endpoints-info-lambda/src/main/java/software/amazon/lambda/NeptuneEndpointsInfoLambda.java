@@ -12,7 +12,6 @@ permissions and limitations under the License.
 
 package software.amazon.lambda;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
@@ -151,25 +150,25 @@ public class NeptuneEndpointsInfoLambda implements RequestStreamHandler {
                     setSuspended(instance);
                 } else if (suspendedEndpoint.equals("reader") && instance.isReader()) {
                     setSuspended(instance);
-                } else if (suspendedEndpoint.equalsIgnoreCase(instance.getAddress())){
+                } else if (suspendedEndpoint.equalsIgnoreCase(instance.getAddress())) {
                     setSuspended(instance);
-                } else if (suspendedEndpoint.equalsIgnoreCase(instance.getInstanceId())){
+                } else if (suspendedEndpoint.equalsIgnoreCase(instance.getInstanceId())) {
                     setSuspended(instance);
                 }
             }
 
-            if (instance.hasTag(SUSPENDED_KEY, SUSPENDED_VALUE)){
+            if (instance.hasTag(SUSPENDED_KEY, SUSPENDED_VALUE)) {
                 setSuspended(instance);
             }
         }
 
         for (String suspendedEndpoint : suspended) {
-            if (suspendedEndpoint.equals("all")){
+            if (suspendedEndpoint.equals("all")) {
                 setSuspended(clusterMetadata.getClusterEndpoint());
                 setSuspended(clusterMetadata.getReaderEndpoint());
-            } else if (suspendedEndpoint.equals("writer")){
+            } else if (suspendedEndpoint.equals("writer")) {
                 setSuspended(clusterMetadata.getClusterEndpoint());
-            } else if (suspendedEndpoint.equals("reader")){
+            } else if (suspendedEndpoint.equals("reader")) {
                 setSuspended(clusterMetadata.getReaderEndpoint());
             }
         }

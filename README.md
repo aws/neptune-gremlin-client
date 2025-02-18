@@ -6,6 +6,10 @@ The client also provides support for connecting to Neptune via a proxy such as a
 
 See [Migrating from version 1 of the Neptune Gremlin Client](#migrating-from-version-1-of-the-neptune-gremlin-client) if you are migrating an application from version 1.x.x of the Neptune Gremlin Client.
 
+## Support for AWS SDK for Java 2.x
+
+Version 3.x of the Neptune Gremlin Client now supports the AWS SDK for Java 2.x. Methods that accept version 1.x objects such as `AWSCredentialsProvider` have been deprecated and will be removed ina future version.
+
 ## Example
 
 The following example shows how to build a `GremlinClient` that connects to and round-robins requests across all available Neptune serverless instances that have been tagged "analytics". The list of endpoints that match this selection criteria is refreshed every 60 seconds. The refresh agent that updates the list of endpoints uses an AWS Lambda proxy function to retrieve details of the Neptune database's cluster topology.
@@ -57,7 +61,7 @@ cluster.close();
 <dependency>
     <groupId>software.amazon.neptune</groupId>
     <artifactId>gremlin-client</artifactId>
-    <version>2.0.1</version>
+    <version>3.0.0</version>
 </dependency>
 ```
 
@@ -322,11 +326,11 @@ ClusterEndpointsRefreshAgent managementApiRefreshAgent =
         ClusterEndpointsRefreshAgent.managementApi("my-cluster-id", "eu-west-1", profileName);        
 ```
 
-Or you can supply an implementation of `AWSCredentialsProvider`:
+Or you can supply an implementation of `AwsCredentialsProvider` (support for the version 1.x `AWSCredentialsProvider` has been deprecated):
 
 ```
-AWSCredentialsProvider credentialsProvider = 
-        new ProfileCredentialsProvider("my-profile")
+AwsCredentialsProvider credentialsProvider = 
+        ProfileCredentialsProvider.create("my-profile")
 
 // Using a Lambda proxy
 ClusterEndpointsRefreshAgent lambdaProxyRefreshAgent = 
@@ -364,7 +368,7 @@ Before you access the Management API or Lambda proxy across accounts, follow the
 
   1. Create a managed policy and role in the resource account (the account containing the Neptune database cluster or the AWS Lambda proxy) that allows trusted users to access the resource.
   2. Grant access to this role to the identity under which you're running the refresh agent.
-  3. Create an `STSAssumeRoleSessionCredentialsProvider` that can assume the role, and which can be passed to the refresh agent.
+  3. Create an `StsAssumeRoleCredentialsProvider` (support for the version 1.x `STSAssumeRoleSessionCredentialsProvider` has been deprecated) that can assume the role, and which can be passed to the refresh agent.
 
 If you want to access the Neptune Management API across accounts, the managed policy document that you create in the Neptune account in [Step 1](https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_cross-account-with-roles.html#tutorial_cross-account-with-roles-1) of the tutorial should look like this :
 
@@ -423,14 +427,19 @@ String lambdaRegion = "eu-west-1";
 String crossAccountRoleArn = "<CROSS_ACCOUNT_ROLE_ARN>";
 
 STSAssumeRoleSessionCredentialsProvider credentialsProvider =
-        new STSAssumeRoleSessionCredentialsProvider.Builder(crossAccountRoleArn, "AssumeRoleSession1")
-        .build();
+        StsAssumeRoleCredentialsProvider.builder()
+                .asyncCredentialUpdateEnabled(true)
+                .stsClient(StsClient.create())
+                .refreshRequest(r -> r
+                    .roleArn(crossAccountRoleArn)
+                    .roleSessionName("AssumeRoleSession1")
+                    .durationSeconds(900)
 
 ClusterEndpointsRefreshAgent refreshAgent = 
         ClusterEndpointsRefreshAgent.lambdaProxy(lambdaName, lambdaRegion, credentialsProvider);
 ```
 
-The following example shows hot to access the Neptune aMnagement API across accounts. Replace `<CROSS_ACCOUNT_ROLE_ARN>` with the ARN of the role created in [Step 1](https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_cross-account-with-roles.html#tutorial_cross-account-with-roles-1) of the tutorial:
+The following example shows how to access the Neptune Management API across accounts. Replace `<CROSS_ACCOUNT_ROLE_ARN>` with the ARN of the role created in [Step 1](https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_cross-account-with-roles.html#tutorial_cross-account-with-roles-1) of the tutorial:
 
  
 ```
@@ -439,27 +448,17 @@ String neptuneRegion = "eu-west-1";
 String crossAccountRoleArn = "<CROSS_ACCOUNT_ROLE_ARN>";
 
 STSAssumeRoleSessionCredentialsProvider credentialsProvider =
-        new STSAssumeRoleSessionCredentialsProvider.Builder(crossAccountRoleArn, "AssumeRoleSession1")
-        .build();
+        StsAssumeRoleCredentialsProvider.builder()
+                .asyncCredentialUpdateEnabled(true)
+                .stsClient(StsClient.create())
+                .refreshRequest(r -> r
+                    .roleArn(crossAccountRoleArn)
+                    .roleSessionName("AssumeRoleSession1")
+                    .durationSeconds(900)
 
 ClusterEndpointsRefreshAgent refreshAgent = 
         ClusterEndpointsRefreshAgent.managementApi(clusterId, neptuneRegion, credentialsProvider);
 ```
-
-If [AWS STS Regional endpoints](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_enable-regions.html) have been enabled in your account, you may want to configure the credentials provider for Regional STS endpoint access:
-
-```
-EndpointConfiguration regionEndpointConfig = new EndpointConfiguration("https://sts.eu-west-1.amazonaws.com", "eu-west-1");
-
-AWSSecurityTokenService stsRegionalClient = AWSSecurityTokenServiceClientBuilder.standard()
-        .withEndpointConfiguration(regionEndpointConfig)
-        .build();
-        
-STSAssumeRoleSessionCredentialsProvider credentialsProvider =
-        new STSAssumeRoleSessionCredentialsProvider.Builder(crossAccountRoleArn, "AssumeRoleSession1")
-        .withStsClient(stsRegionalClient)
-        .build();
-``` 
 
 Remember to call `close()` on the credentials provider when it is no longer needed. This shuts down the thread that performs asynchronous credential refreshing.
 
@@ -552,7 +551,7 @@ Or you can supply your own `AwsCredentialsProvider` implementation:
 GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
         .enableIamAuth(true)
         .addContactPoint("reader-1")
-        .credentials(new ProfileCredentialsProvider("profile-name"))
+        .credentials(ProfileCredentialsProvider.create("profile-name")
         .create();
 ```
 
@@ -563,7 +562,10 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
 				.enableIamAuth(true)
         .addContactPoint("reader-1")
         .handshakeInterceptor(r -> { 
-              NeptuneNettyHttpSigV4Signer sigV4Signer = new NeptuneNettyHttpSigV4Signer("eu-west-1", new DefaultAWSCredentialsProviderChain());
+              NeptuneNettyHttpSigV4Signer sigV4Signer = new NeptuneNettyHttpSigV4Signer(
+                    "eu-west-1", 
+                    AwsCredentialsProviderChain.of(DefaultCredentialsProvider.create())
+              );
               sigV4Signer.signRequest(r);
               return r;
         })
@@ -831,7 +833,7 @@ Using a custom `EndpointsSelector` you can select database instance endpoints ba
 
 (Note that pre version 2.0.1 of the Neptune Gremlin Client, calls from a refresh agent to the Neptune Management API would cache tags for individual instances. This meant that changes to a database instance's tags would not be reflected in subsequent calls to get the cluster topology. This behaviour has changed in 2.0.1: the tags associated with a database instance now remain current with that instance.)
 
-#### Prewarm replicas
+#### Pre-warm replicas
 
 Neptune's [auto-scaling feature](https://docs.aws.amazon.com/neptune/latest/userguide/manage-console-autoscaling.html) allows you to automatically adjust the number of Neptune replicas in a database cluster to meet your connectivity and workload requirements. Autoscaling can add replicas to your cluster on a sceduled basis or whenever the CPU utilization on existing instances exceeds a threshhold you specify in the autoscaling configuration.
 

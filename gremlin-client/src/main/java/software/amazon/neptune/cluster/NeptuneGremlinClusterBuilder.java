@@ -369,6 +369,7 @@ public class NeptuneGremlinClusterBuilder {
         return this;
     }
 
+    @Deprecated
     public NeptuneGremlinClusterBuilder credentials(final AWSCredentialsProvider v1AwsCredentialProvider) {
         this.credentials = V1toV2CredentialsProvider.create(v1AwsCredentialProvider);
         return this;
