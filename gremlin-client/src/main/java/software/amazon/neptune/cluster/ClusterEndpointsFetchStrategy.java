@@ -23,7 +23,7 @@ public interface ClusterEndpointsFetchStrategy {
     ClusterMetadataSupplier clusterMetadataSupplier();
     Map<? extends EndpointsSelector, EndpointCollection> getEndpoints(Collection<? extends EndpointsSelector> selectors, boolean refresh);
 
-    default Map<? extends EndpointsSelector, EndpointCollection> getEndpoints(Map<? extends EndpointsSelector, GremlinClient> clientSelectors, boolean refresh){
+    default Map<? extends EndpointsSelector, EndpointCollection> getEndpoints(Map<? extends EndpointsSelector, Collection<GremlinClient>> clientSelectors, boolean refresh){
         return getEndpoints(clientSelectors.keySet(), refresh);
     }
 }

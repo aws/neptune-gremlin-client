@@ -14,6 +14,7 @@ package software.amazon.neptune.cluster;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import org.apache.tinkerpop.gremlin.driver.Endpoint;
 import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 import org.apache.tinkerpop.gremlin.driver.GremlinClient;
 import org.apache.tinkerpop.gremlin.driver.RefreshTask;
@@ -24,10 +25,7 @@ import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.utils.RegionUtils;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,6 +34,45 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class ClusterEndpointsRefreshAgent implements AutoCloseable {
+
+    public interface EndpointsSupplier {
+        Map<? extends EndpointsSelector, EndpointCollection> getRefreshedEndpointsForSelectors(Map<EndpointsSelector, Collection<GremlinClient>> selectors);
+    }
+
+    public static class PollingCommand implements Runnable {
+
+        private final Collection<RefreshTask> tasks;
+        private final EndpointsSupplier endpointsSupplier;
+
+        public PollingCommand(Collection<RefreshTask> tasks, EndpointsSupplier endpointsSupplier) {
+            this.tasks = tasks;
+            this.endpointsSupplier = endpointsSupplier;
+        }
+
+        @Override
+        public void run() {
+            try {
+                Map<EndpointsSelector, Collection<GremlinClient>> clientSelectors = new HashMap<>();
+                for (RefreshTask task : tasks) {
+                    EndpointsSelector selector = task.selector();
+                    if (!clientSelectors.containsKey(selector)){
+                        clientSelectors.put(selector, new ArrayList<>());
+                    }
+                    clientSelectors.get(selector).add(task.client());
+                }
+                Map<? extends EndpointsSelector, EndpointCollection> refreshResults = endpointsSupplier.getRefreshedEndpointsForSelectors(clientSelectors);
+                for (Map.Entry<? extends EndpointsSelector, EndpointCollection> entry : refreshResults.entrySet()) {
+                    EndpointCollection endpoints = entry.getValue();
+                    for (GremlinClient client : clientSelectors.get(entry.getKey())) {
+                        logger.info("Refresh: [client: {}, endpoints: {}]", client.hashCode(), endpoints);
+                        client.refreshEndpoints(endpoints);
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Error while getting cluster metadata", e);
+            }
+        }
+    }
 
     public static ClusterEndpointsRefreshAgent monitor(GremlinClient client,
                                                        long delay,
@@ -205,24 +242,9 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
             throw new IllegalStateException("Refresh agent is already running");
         }
 
-        scheduledExecutorService.scheduleWithFixedDelay(() -> {
-            try {
-                Map<EndpointsSelector, GremlinClient> clientSelectors = new HashMap<>();
-                for (RefreshTask task : tasks) {
-                    clientSelectors.put(task.selector(), task.client());
-                }
-                Map<? extends EndpointsSelector, EndpointCollection> refreshResults = refreshEndpoints(clientSelectors);
-                for (Map.Entry<? extends EndpointsSelector, EndpointCollection> entry : refreshResults.entrySet()) {
-                    EndpointCollection endpoints = entry.getValue();
-                    GremlinClient client = clientSelectors.get(entry.getKey());
-                    logger.info("Refresh: [client: {}, endpoints: {}]", client.hashCode(), endpoints);
-                    client.refreshEndpoints(endpoints);
-                }
-            } catch (Exception e) {
-                logger.error("Error while getting cluster metadata", e);
-            }
+        PollingCommand pollingCommand = new PollingCommand(tasks, this::refreshEndpoints);
 
-        }, delay, delay, timeUnit);
+        scheduledExecutorService.scheduleWithFixedDelay(pollingCommand, delay, delay, timeUnit);
     }
 
     public void startPollingNeptuneAPI(OnNewClusterMetadata onNewClusterMetadata,
@@ -263,7 +285,7 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
         }).get();
     }
 
-    private Map<? extends EndpointsSelector, EndpointCollection> refreshEndpoints(Map<EndpointsSelector, GremlinClient> clientSelectors) {
+    private Map<? extends EndpointsSelector, EndpointCollection> refreshEndpoints(Map<EndpointsSelector, Collection<GremlinClient>> clientSelectors) {
         return endpointsFetchStrategy.getEndpoints(clientSelectors, true);
     }
 
