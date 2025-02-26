@@ -43,7 +43,7 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
     private final AwsCredentialsProvider credentials;
     private final AtomicReference<NeptuneClusterMetadata> cachedClusterMetadata = new AtomicReference<>();
     private final ClientOverrideConfiguration clientConfiguration;
-    private SdkHttpClient.Builder<?> httpClientBuilder;
+    private final SdkHttpClient.Builder<?> httpClientBuilder;
 
     GetEndpointsFromNeptuneManagementApi(String clusterId) {
         this(clusterId, RegionUtils.getCurrentRegionName());
@@ -196,6 +196,7 @@ class GetEndpointsFromNeptuneManagementApi implements ClusterEndpointsFetchStrat
                 logger.warn("Calls to the Neptune Management API are being throttled. Reduce the refresh rate and stagger refresh agent requests, or use a NeptuneEndpointsInfoLambda proxy.");
                 NeptuneClusterMetadata clusterMetadata = cachedClusterMetadata.get();
                 if (clusterMetadata != null) {
+                    logger.warn("Returning cached cluster metadata");
                     return clusterMetadata;
                 } else {
                     throw e;

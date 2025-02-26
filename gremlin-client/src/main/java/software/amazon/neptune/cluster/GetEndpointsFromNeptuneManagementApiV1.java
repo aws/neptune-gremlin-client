@@ -182,6 +182,7 @@ class GetEndpointsFromNeptuneManagementApiV1 implements ClusterEndpointsFetchStr
                 logger.warn("Calls to the Neptune Management API are being throttled. Reduce the refresh rate and stagger refresh agent requests, or use a NeptuneEndpointsInfoLambda proxy.");
                 NeptuneClusterMetadata clusterMetadata = cachedClusterMetadata.get();
                 if (clusterMetadata != null) {
+                    logger.warn("Returning cached cluster metadata");
                     return clusterMetadata;
                 } else {
                     throw e;
