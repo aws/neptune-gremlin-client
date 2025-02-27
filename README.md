@@ -119,7 +119,7 @@ cluster.close();
 
 With the Neptune Gremlin Client you create a `GremlinCluster` and `GremlinClient` much as you would create a `Cluster` and `Client` with the Tinkerpop Java driver. The Neptune Gremlin Client is designed to be a near-drop-in replacement for the Java driver. Internally, it uses the Java driver to connect to Neptune and issue queries.
 
-You populate a `GremlinCluster` with one or more endpoints, or contact points, when you first create a client, but you can also refresh this list of endpoints from your code whenever you want. The `GremlinClient` exposes a `endpointsSupplier()` method that allows you to supply a new set of endpoints. This allows a running application to adapt to changes in your Neptune database's cluster topology.
+You populate a `GremlinCluster` with one or more endpoints, or contact points, when you first create a client, but you can also refresh this list of endpoints from your code whenever you want. The `GremlinClient` exposes a `refreshEndpoints()` method that allows you to supply a new set of endpoints. This allows a running application to adapt to changes in your Neptune database's cluster topology.
 
 The easiest way to automatically refresh the list of endpoints is to use a `ClusterEndpointsRefreshAgent`. The agent can be configured to periodically discover the database cluster's current topology, select a set of endpoints, and update the client.
 
@@ -171,14 +171,14 @@ The `NeptuneGremlinClusterBuilder` is configured to use port 8182, and enable SS
  
 Use the `GraphTraversalSource` created here throughout the lifetime of your application, and across threads – just as you would with the TinkerPop Java driver client. The `GremlinClient` ensures that requests are distributed across the current set of endpoints in a round-robin fashion.
  
-The `GremlinClient` has a `endpointsSupplier()` method that allows you to submit a fresh list of endpoint addresses. When the list of endpoints changes, subsequent requests will be distributed across the new set of endpoints.
+The `GremlinClient` has a `refreshEndpoints()` method that allows you to submit a fresh list of endpoint addresses. When the list of endpoints changes, subsequent requests will be distributed across the new set of endpoints.
  
-Once you have a reference to a `GremlinClient`, you can call this `endpointsSupplier()` method whenever you discover the cluster topology has changed. You could subscribe to SNS events, for example, and refresh the list whenever an instance is added or removed, or when you detect a failover. 
+Once you have a reference to a `GremlinClient`, you can call this `refreshEndpoints()` method whenever you discover the cluster topology has changed. You could subscribe to SNS events, for example, and refresh the list whenever an instance is added or removed, or when you detect a failover. 
 
 To update the list of endpoint addresses:
  
 ```
-client.endpointsSupplier(new EndpointCollection(Arrays.asList(
+client.refreshEndpoints(new EndpointCollection(Arrays.asList(
                     new DatabaseEndpoint().withAddress("new-replica-endpoint-1"),
                     new DatabaseEndpoint().withAddress("new-replica-endpoint-2"),
                     new DatabaseEndpoint().withAddress("new-replica-endpoint-3")
@@ -188,7 +188,7 @@ client.endpointsSupplier(new EndpointCollection(Arrays.asList(
 From version 2.0.5 onwards, you can use:
 
 ```
-client.endpointsSupplier(
+client.refreshEndpoints(
                 new DatabaseEndpoint().withAddress("new-replica-endpoint-1"),
                 new DatabaseEndpoint().withAddress("new-replica-endpoint-2"),
                 new DatabaseEndpoint().withAddress("new-replica-endpoint-3")
@@ -1139,7 +1139,7 @@ org.apache.tinkerpop.gremlin.driver.exception.ResponseException: {"detailedMessa
 Neptune Gremlin Client 2.x.x includes the following breaking changes:
 
   - The `EndpointsSelector.getEndpoints()` method now accepts a `NeptuneClusterMetadata` object and returns an `EndpointCollection` (version 1 returned a collection of String addresses).
-  - The `GremlinClient.endpointsSupplier()` method now accepts an `EndpointCollection` (version 1 accepted a collection of String addresses).
+  - The `GremlinClient.refreshEndpoints()` method now accepts an `EndpointCollection` (version 1 accepted a collection of String addresses).
   - `NeptuneInstanceProperties` has been renamed `NeptuneInstanceMetadata`.
   - You can no longer supply a list of selectors when creating a `ClusterEndpointsRefreshAgent`: selectors are applied lazily whenever the agent is triggered.
   - To supply an initial list of endpoints to the `NeptuneGremlinClusterBuilder.addContactPoints()` method, use `refreshAgent.getEndpoints()` with an appropriate selector (version 1 used `getAddresses()`).
@@ -1174,7 +1174,7 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
 GremlinClient client = cluster.connect();
 
 refreshAgent.startPollingNeptuneAPI(
-        (OnNewAddresses) addresses -> client.endpointsSupplier(addresses.get(selector)),
+        (OnNewAddresses) addresses -> client.refreshEndpoints(addresses.get(selector)),
         60,
         TimeUnit.SECONDS);
 
