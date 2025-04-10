@@ -38,4 +38,12 @@ public class ApprovalResult {
         }
         return endpoint;
     }
+
+    @Override
+    public String toString() {
+        return "ApprovalResult{" +
+                "isApproved=" + isApproved +
+                ", reason='" + reason + '\'' +
+                '}';
+    }
 }
