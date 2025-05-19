@@ -6,6 +6,10 @@ The client also provides support for connecting to Neptune via a proxy such as a
 
 See [Migrating from version 1 of the Neptune Gremlin Client](#migrating-from-version-1-of-the-neptune-gremlin-client) if you are migrating an application from version 1.x.x of the Neptune Gremlin Client.
 
+## Changes to the build artefacts
+
+As of release 3.1.0, the Neptune Gremlin Client is built with and without dependencies. Previously, the project was built only _with_ dependencies. If you still wish to include this uber-jar in your application, use the `<classifier>` tag when specifying the dependency. See the [Maven](#maven) section for more details.
+
 ## Support for AWS SDK for Java 2.x
 
 Version 3.x of the Neptune Gremlin Client now supports the AWS SDK for Java 2.x. Methods that accept version 1.x objects such as `AWSCredentialsProvider` have been deprecated and will be removed ina future version.
@@ -57,11 +61,24 @@ cluster.close();
 
 ### Maven
 
+Without dependencies:
+
 ```
 <dependency>
     <groupId>software.amazon.neptune</groupId>
     <artifactId>gremlin-client</artifactId>
-    <version>3.0.0</version>
+    <version>3.1.0</version>
+</dependency>
+```
+
+With dependencies (uber-jar):
+
+```
+<dependency>
+    <groupId>software.amazon.neptune</groupId>
+    <artifactId>gremlin-client</artifactId>
+    <version>3.1.0</version>
+    <classifier>jar-with-dependencies</classifier>
 </dependency>
 ```
 
