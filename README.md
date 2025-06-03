@@ -264,8 +264,9 @@ When you use a `ClusterEndpointsRefreshAgent` to query an AWS Lambda proxy funct
 
   1. Build the AWS Lambda proxy from [source](./neptune-endpoints-info-lambda), or download the [latest release](https://github.com/aws/neptune-gremlin-client/releases/latest), and put it an Amazon S3 bucket. 
   2. Install the Lambda proxy in your account using [this CloudFormation template](./cloudformation-templates/neptune-endpoints-info-lambda.json). The template includes parameters for the current Neptune cluster ID, and the S3 source for the Lambda proxy jar (from step 1).
-  3. Ensure all parts of your application are using the latest Neptune Gremlin Client.
-  4. The Neptune Gremlin Client should be configured to fetch the cluster topology information from the Lambda proxy using the `ClusterEndpointsRefreshAgent.lambdaProxy()` method, as per the [example above](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology).
+	3. Ensure the [reserved concurrency](#lambda-reserved-concurrency) for the Lambda is set to a low value.
+  4. Ensure all parts of your application are using the latest Neptune Gremlin Client.
+  5. The Neptune Gremlin Client should be configured to fetch the cluster topology information from the Lambda proxy using the `ClusterEndpointsRefreshAgent.lambdaProxy()` method, as per the [example above](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology).
   
 #### Lambda proxy environment variables
 
@@ -274,6 +275,10 @@ The AWS Lambda proxy has the following environment variables:
   - `clusterId` – The cluster ID of the Amazon Neptune cluster to be polled for endpoint information.
   - `pollingIntervalSeconds` – The number of seconds between polls.
   - `suspended` – Determines whether specific endpoints will be suspended (see the next section). Valid values are: `none`, `all`, `writer`, `reader`. 
+	
+#### Lambda reserved concurrency
+
+To ensure that only a small number of Lambda instances poll the Neptune Management API at the same time, set the [reserved concurrency](https://docs.aws.amazon.com/lambda/latest/dg/configuration-concurrency.html) for the Lambda to a value between `2` and `5`. If you don't set the reserved concurrency, a large number of simulataneous requests to the Lambda from clients can trigger throttling exceptions.
   
 #### Suspending endpoints using the AWS Lambda proxy
 
