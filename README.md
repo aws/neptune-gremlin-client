@@ -92,6 +92,7 @@ With dependencies (uber-jar):
     - [Using an AWS Lambda proxy to retrieve cluster topology](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology)
       - [Installing the neptune-endpoints-info AWS Lambda function](#installing-the-neptune-endpoints-info-aws-lambda-function)
       - [Lambda proxy environment variables](#lambda-proxy-environment-variables)
+			- [Lambda reserved concurrency](#lambda-reserved-concurrency)
       - [Suspending endpoints using the AWS Lambda proxy](#suspending-endpoints-using-the-aws-lambda-proxy)
     - [Using a ClusterEndpointsRefreshAgent to query the Neptune Management API directly](#using-a-clusterendpointsrefreshagent-to-query-the-neptune-management-api-directly)
     - [ClusterEndpointsRefreshAgent credentials](#clusterendpointsrefreshagent-credentials)
@@ -265,7 +266,7 @@ When you use a `ClusterEndpointsRefreshAgent` to query an AWS Lambda proxy funct
   1. Build the AWS Lambda proxy from [source](./neptune-endpoints-info-lambda), or download the [latest release](https://github.com/aws/neptune-gremlin-client/releases/latest), and put it an Amazon S3 bucket. 
   2. Install the Lambda proxy in your account using [this CloudFormation template](./cloudformation-templates/neptune-endpoints-info-lambda.json). The template includes parameters for the current Neptune cluster ID, and the S3 source for the Lambda proxy jar (from step 1).
 	3. Ensure the [reserved concurrency](#lambda-reserved-concurrency) for the Lambda is set to a low value.
-  4. Ensure all parts of your application are using the latest Neptune Gremlin Client.
+	4. Ensure all parts of your application are using the latest Neptune Gremlin Client.
   5. The Neptune Gremlin Client should be configured to fetch the cluster topology information from the Lambda proxy using the `ClusterEndpointsRefreshAgent.lambdaProxy()` method, as per the [example above](#using-an-aws-lambda-proxy-to-retrieve-cluster-topology).
   
 #### Lambda proxy environment variables
