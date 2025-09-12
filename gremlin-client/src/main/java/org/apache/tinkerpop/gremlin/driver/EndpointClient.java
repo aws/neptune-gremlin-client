@@ -29,7 +29,15 @@ class EndpointClient {
         for (Map.Entry<Endpoint, Cluster> entry : endpointClusters.entrySet()) {
             Cluster cluster = entry.getValue();
             Endpoint endpoint = entry.getKey();
-            Client client = clientFactory.apply(cluster);
+            final Client client;
+            try {
+                client = clientFactory.apply(cluster);
+            } catch (final Exception ex) {
+                // In case if an exception occurs then continue. Let the caller decide whether to throw an exception
+                // Or not. Based on the fact the client configuration could have multiple highly available setting
+                // with numerous endpoints. One endpoint failing shouldn't be end of the world here.
+                continue;
+            }
 
             results.add(new EndpointClient(endpoint, client));
         }
