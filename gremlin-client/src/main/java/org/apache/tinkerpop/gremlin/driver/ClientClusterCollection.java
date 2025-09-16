@@ -54,6 +54,15 @@ class ClientClusterCollection {
         return clusters.containsKey(endpoint.getAddress());
     }
 
+    public void removeClusterWithMatchingEndpoint(EndpointCollection endpoints) {
+        removeClustersWithNoMatchingEndpoint(endpoints, cluster -> {
+            if (cluster != null) {
+                cluster.close();
+            }
+            return null;
+        }, true);
+    }
+
     public void removeClustersWithNoMatchingEndpoint(EndpointCollection endpoints) {
         removeClustersWithNoMatchingEndpoint(endpoints, cluster -> {
             if (cluster != null) {
@@ -64,9 +73,13 @@ class ClientClusterCollection {
     }
 
     void removeClustersWithNoMatchingEndpoint(EndpointCollection endpoints, Function<Cluster, Void> clusterCloseMethod) {
+        removeClustersWithNoMatchingEndpoint(endpoints, clusterCloseMethod, false);
+    }
+
+    void removeClustersWithNoMatchingEndpoint(EndpointCollection endpoints, Function<Cluster, Void> clusterCloseMethod, boolean match) {
         List<String> removalList = new ArrayList<>();
         for (String address : clusters.keySet()) {
-            if (!endpoints.containsEndpoint(new DatabaseEndpoint().withAddress(address))) {
+            if (match == endpoints.containsEndpoint(new DatabaseEndpoint().withAddress(address))) {
                 removalList.add(address);
             }
         }
