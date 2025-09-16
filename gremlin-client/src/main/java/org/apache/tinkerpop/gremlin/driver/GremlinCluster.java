@@ -17,7 +17,12 @@ import org.slf4j.LoggerFactory;
 import software.amazon.utils.GitProperties;
 import software.amazon.utils.SoftwareVersion;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
@@ -90,7 +95,7 @@ public class GremlinCluster implements AutoCloseable {
         // validate atleast one endpoint is available otherwise fail !
 
         if (newEndpointClients.isEmpty()) {
-            throw new IllegalStateException("None of the endpoints supplied are available !");
+            throw new EndpointsUnavailableException(List.of("None of the endpoints supplied are available !"));
         }
 
         EndpointClientCollection endpointClientCollection = new EndpointClientCollection(

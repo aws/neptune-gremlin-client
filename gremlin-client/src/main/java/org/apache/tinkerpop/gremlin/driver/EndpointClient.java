@@ -12,6 +12,9 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +22,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 class EndpointClient {
+
+    private static final Logger logger = LoggerFactory.getLogger(EndpointClient.class);
 
     public static List<EndpointClient> create(Map<Endpoint, Cluster> endpointClusters) {
         return create(endpointClusters, cluster -> cluster.connect().init());
@@ -33,6 +38,7 @@ class EndpointClient {
             try {
                 client = clientFactory.apply(cluster);
             } catch (final Exception ex) {
+                logger.error("Failed to create client for endpoint: {}", endpoint, ex);
                 // In case if an exception occurs then continue. Let the caller decide whether to throw an exception
                 // Or not. Based on the fact the client configuration could have multiple highly available setting
                 // with numerous endpoints. One endpoint failing shouldn't be end of the world here.
