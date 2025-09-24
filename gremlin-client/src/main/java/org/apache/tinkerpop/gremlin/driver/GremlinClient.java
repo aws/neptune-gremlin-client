@@ -17,13 +17,12 @@ import org.apache.tinkerpop.gremlin.util.message.RequestMessage;
 import org.apache.tinkerpop.gremlin.process.traversal.Bytecode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.neptune.cluster.ClusterEndpointsRefreshAgent;
 import software.amazon.utils.CollectionUtils;
 
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -169,7 +168,19 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
             connection = currentEndpointClientCollection.chooseConnection(
                     msg,
-                    ec -> ec.get((int) (index.getAndIncrement() % ec.size())));
+                    ec -> {
+                        int retryCount = 0;
+                        while(retryCount < ec.size()) {
+                            final EndpointClient endpointClient = ec.get((int) (index.getAndIncrement() % ec.size()));
+                            if (!endpointClient.isAvailable()) {
+                                logger.debug("Strategy: No connections available for {}", endpointClient.endpoint().getAddress());
+                                retryCount++;
+                                continue;
+                            }
+                            return endpointClient;
+                        }
+                        throw new EndpointsUnavailableException(List.of("None of the existing clients have connections available to be used."));
+                    });
 
             if (connection == null) {
 
@@ -227,21 +238,32 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
         return closing.get();
     }
 
+    /**
+     * For the {@link GremlinClient} wrapper, prefer use of {@link #initEndpointCollection()}.
+     * </p>
+     * This override of initialization is a bit of a do-nothing. It purposely does not proxy the call to
+     * {@code super} or try to call it for the {@link #endpointClientCollection} because it has the potential to
+     * cause monitor lock contention with calls to {@code submit}. By relegating initialization to {@code submit}
+     * only we avoid the chance for stalls on requests that are in conflict with the
+     * {@link ClusterEndpointsRefreshAgent}.
+     * <p/>
+     * The notion of {@link #initialized} doesn't have much meaning for this implementation as a wrapper, so it too
+     * is being ignored.
+     */
     @Override
     public synchronized Client init() {
-        if (initialized)
-            return this;
+        if (isClosing()) throw new IllegalStateException("Client is closed");
+        return this;
+    }
 
-        logger.debug("Initializing internal clients");
-
+    /**
+     * This method will initialize the underlying connection pools in each {@link Client} instance. It is important that
+     * this method not be called in parallel to making requests with {@code submit}.
+     */
+    public synchronized void initEndpointCollection() {
         for (EndpointClient endpointClient : endpointClientCollection.get()) {
             endpointClient.initClient();
         }
-
-        initializeImplementation();
-
-        initialized = true;
-        return this;
     }
 
     @Override
@@ -283,8 +305,6 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
             RequestOptions.Builder newOptions = RequestOptions.build();
             newOptions.overrideRequestId(traceId);
 
-
-
             if (options.getAliases().isPresent()) {
                 Map<String, String> aliases = options.getAliases().get();
                 for (Map.Entry<String, String> alias : aliases.entrySet()) {
@@ -310,6 +330,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
                     newOptions.addParameter(param.getKey(), param.getValue());
                 }
             }
+
             CompletableFuture<ResultSet> future = super.submitAsync(bytecode, newOptions.create());
 
             EndpointClientCollection endpointClients = endpointClientCollection.get();
@@ -323,6 +344,34 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
                 return future;
             }
 
+        }
+
+        /**
+         * For the {@link GremlinClient} wrapper, prefer use of {@link #initEndpointCollection()}.
+         * </p>
+         * This override of initialization is a bit of a do-nothing. It purposely does not proxy the call to
+         * {@code super} or try to call it for the {@link #endpointClientCollection} because it has the potential to
+         * cause monitor lock contention with calls to {@code submit}. By relegating initialization to {@code submit}
+         * only we avoid the chance for stalls on requests that are in conflict with the
+         * {@link ClusterEndpointsRefreshAgent}.
+         * <p/>
+         * The notion of {@link #initialized} doesn't have much meaning for this implementation as a wrapper, so it too
+         * is being ignored.
+         */
+        @Override
+        public synchronized Client init() {
+            if (isClosing()) throw new IllegalStateException("Client is closed");
+            return this;
+        }
+
+        /**
+         * This method will initialize the underlying connection pools in each {@link Client} instance. It is important that
+         * this method not be called in parallel to making requests with {@code submit}.
+         */
+        public synchronized void initEndpointCollection() {
+            for (EndpointClient endpointClient : endpointClientCollection.get()) {
+                endpointClient.initClient();
+            }
         }
 
         @Override

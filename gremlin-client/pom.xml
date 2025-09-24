@@ -24,7 +24,7 @@
         <javac.target>11</javac.target>
         <aws.sdk.version>2.30.17</aws.sdk.version>
         <aws.sdk.version.v1>1.12.781</aws.sdk.version.v1>
-        <gremlin.driver.version>3.7.2</gremlin.driver.version>
+        <gremlin.driver.version>3.7.4</gremlin.driver.version>
         <jackson.databind.version>2.18.2</jackson.databind.version>
         <sigv4.version>3.1.0</sigv4.version>
     </properties>
@@ -130,6 +130,12 @@
             <groupId>com.evanlennick</groupId>
             <artifactId>retry4j</artifactId>
             <version>0.15.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>1.7.36</version>
         </dependency>
 
         <dependency>

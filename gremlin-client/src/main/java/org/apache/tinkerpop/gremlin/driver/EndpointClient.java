@@ -56,7 +56,14 @@ class EndpointClient {
         return client;
     }
 
+    /**
+     * If calling this method directly, do so prior to and not in conjunction with submitting requests.
+     */
     public void initClient() {
+        // calling this directly has some consequences. it used to be called from GremlinClient on the full
+        // endpointClientCollection but that can cause monitor lock contention given synchronized calls to
+        // init from the ClusterEndpointsRefreshAgent and submit. seems better to just let submit win and
+        // be the one to do the initialization.
         client.init();
     }
 

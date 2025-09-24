@@ -14,7 +14,6 @@ package software.amazon.neptune.cluster;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
-import org.apache.tinkerpop.gremlin.driver.Endpoint;
 import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
 import org.apache.tinkerpop.gremlin.driver.GremlinClient;
 import org.apache.tinkerpop.gremlin.driver.RefreshTask;
@@ -64,8 +63,13 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
                 for (Map.Entry<? extends EndpointsSelector, EndpointCollection> entry : refreshResults.entrySet()) {
                     EndpointCollection endpoints = entry.getValue();
                     for (GremlinClient client : clientSelectors.get(entry.getKey())) {
-                        logger.info("Refresh: [client: {}, endpoints: {}]", client.hashCode(), endpoints);
-                        client.refreshEndpoints(endpoints);
+                        logger.debug("Attempting refresh: [client: {}, endpoints: {}]", client.hashCode(), endpoints);
+                        try {
+                            client.refreshEndpoints(endpoints);
+                            logger.info("Refreshed: [client: {}, endpoints: {}]", client.hashCode(), endpoints);
+                        } catch (Exception ex) {
+                            logger.error(String.format("Error on refresh [client: %s, endpoints: %s]", client.hashCode(), endpoints), ex);
+                        }
                     }
                 }
             } catch (Exception e) {
