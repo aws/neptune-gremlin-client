@@ -2,51 +2,32 @@ package org.apache.tinkerpop.gremlin.driver;
 
 import org.junit.Test;
 import org.junit.Assert;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.mockito.ArgumentMatchers;
-
-import java.net.http.HttpClient;
-import java.net.http.HttpResponse;
-import java.net.http.HttpRequest;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.neptune.cluster.SuspendedEndpoints;
 
 public class StatusEndpointFilterTest {
 
-    private static final String VALID_RESPONSE = "{\"status\":\"healthy\"}";
-    private static final String INVALID_RESPONSE = "{\"status\":\"unhealthy\"}";
-
     @Test
     public void testStatusEndpointWithHealthyStatus() throws Exception {
-        testSetup(VALID_RESPONSE, true);
+        testSetup("healthy", true);
     }
 
     @Test
     public void testStatusEndpointWithUnhealthyStatus() throws Exception {
-        testSetup(INVALID_RESPONSE, false);
+        testSetup("unhealthy", false);
     }
 
-    private void testSetup(final String response, final boolean expectedResult) throws Exception {
-        final HttpClient mockClient = Mockito.mock(HttpClient.class);
-        final HttpResponse<String> mockResponse = (HttpResponse<String>) Mockito.mock(HttpResponse.class);
+    private void testSetup(final String status, final boolean expectedResult) throws Exception {
+        final AwsCredentialsProvider mockCredentials = Mockito.mock(AwsCredentialsProvider.class);
+        final StatusEndpointFilter filter = new StatusEndpointFilter(Region.US_EAST_1, mockCredentials);
+        final Endpoint endpoint = new DatabaseEndpoint().withAddress("test-endpoint.com");
 
-        Mockito.when(mockResponse.statusCode()).thenReturn(200);
-        Mockito.when(mockResponse.body()).thenReturn(response);
-        Mockito.when(mockClient.send(ArgumentMatchers.any(HttpRequest.class), ArgumentMatchers.any(HttpResponse.BodyHandler.class)))
-                .thenReturn(mockResponse);
+        endpoint.setAnnotation(SuspendedEndpoints.STATE_ANNOTATION, status);
 
-        try (final MockedStatic<HttpClient> mockedStatic = Mockito.mockStatic(HttpClient.class)) {
-            final HttpClient.Builder mockBuilder = Mockito.mock(HttpClient.Builder.class);
+        final ApprovalResult result = filter.approveEndpoint(endpoint);
 
-            Mockito.when(mockBuilder.connectTimeout(ArgumentMatchers.any())).thenReturn(mockBuilder);
-            Mockito.when(mockBuilder.build()).thenReturn(mockClient);
-            mockedStatic.when(HttpClient::newBuilder).thenReturn(mockBuilder);
-
-            final StatusEndpointFilter filter = new StatusEndpointFilter("us-east-1");
-            final Endpoint endpoint = new DatabaseEndpoint().withAddress("test-endpoint.com");
-
-            final ApprovalResult result = filter.approveEndpoint(endpoint);
-
-            Assert.assertEquals(result.isApproved(), expectedResult);
-        }
+        Assert.assertEquals(expectedResult, result.isApproved());
     }
 }

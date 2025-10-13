@@ -29,6 +29,9 @@ import org.apache.commons.lang3.StringUtils;
 import software.amazon.neptune.cluster.ClusterEndpointsRefreshAgent;
 import software.amazon.neptune.cluster.EndpointsType;
 import software.amazon.neptune.cluster.NeptuneGremlinClusterBuilder;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
+
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -100,7 +103,10 @@ public class ContinuousReadDemo implements Runnable {
 //        ChooseEndpointStrategy strategy = new EqualConcurrentUsageEndpointStrategy();
 //        ChooseEndpointStrategy strategy = new RoundRobinEndpointStrategy();
 //        ChooseEndpointStrategy strategy = new ConcurrentUsageEndpointStrategy();
-        final EndpointFilter endpointFilter = new StatusEndpointFilter(serviceRegion);
+        final EndpointFilter endpointFilter = new StatusEndpointFilter(
+                Region.of(serviceRegion),
+                ProfileCredentialsProvider.create(profile)
+        );
 
         GremlinCluster writerCluster = null;
         GremlinClient writerClient = null;

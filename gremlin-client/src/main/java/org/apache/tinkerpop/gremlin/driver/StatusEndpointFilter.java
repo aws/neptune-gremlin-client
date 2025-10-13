@@ -1,68 +1,112 @@
+/*
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License").
+You may not use this file except in compliance with the License.
+A copy of the License is located at
+    http://www.apache.org/licenses/LICENSE-2.0
+or in the "license" file accompanying this file. This file is distributed
+on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+express or implied. See the License for the specific language governing
+permissions and limitations under the License.
+*/
+
 package org.apache.tinkerpop.gremlin.driver;
 
-import com.amazonaws.auth.AWS4Signer;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.DefaultRequest;
-import com.amazonaws.http.HttpMethodName;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.neptune.auth.credentials.V1toV2CredentialsProvider;
+import org.apache.tinkerpop.gremlin.driver.ApprovalResult;
+import org.apache.tinkerpop.gremlin.driver.Endpoint;
+import org.apache.tinkerpop.gremlin.driver.EndpointFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.neptunedata.NeptunedataClient;
+import software.amazon.awssdk.services.neptunedata.model.ClientTimeoutException;
+import software.amazon.awssdk.services.neptunedata.model.GetEngineStatusRequest;
+import software.amazon.awssdk.services.neptunedata.model.GetEngineStatusResponse;
+import software.amazon.neptune.cluster.SuspendedEndpoints;
 
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
 
 public class StatusEndpointFilter implements EndpointFilter {
 
-    private final String region;
-    private final HttpClient httpClient;
-    private final ObjectMapper objectMapper;
+    private static final Logger logger = LoggerFactory.getLogger(StatusEndpointFilter.class);
 
-    public StatusEndpointFilter(String region) {
+    private static final long DEFAULT_TIMEOUT_MILLIS = 2000;
+    private static final String STATE_HEALTHY = "healthy";
+
+
+    private final Region region;
+    private final AwsCredentialsProvider credentialsProvider;
+    private final long timeoutMillis;
+
+    public StatusEndpointFilter(Region region, AwsCredentialsProvider credentialsProvider, long timeoutMillis) {
         this.region = region;
-        this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-        this.objectMapper = new ObjectMapper();
+        this.credentialsProvider = credentialsProvider;
+        this.timeoutMillis = timeoutMillis;
+    }
+
+    public StatusEndpointFilter(Region region, AwsCredentialsProvider credentialsProvider) {
+        this(region, credentialsProvider, DEFAULT_TIMEOUT_MILLIS);
+    }
+
+    public StatusEndpointFilter(Region region, AWSCredentialsProvider credentialsProvider, long timeoutMillis) {
+        this(region, V1toV2CredentialsProvider.create(credentialsProvider), timeoutMillis);
+    }
+
+    public StatusEndpointFilter(Region region, AWSCredentialsProvider credentialsProvider) {
+        this(region, credentialsProvider, DEFAULT_TIMEOUT_MILLIS);
     }
 
     @Override
     public ApprovalResult approveEndpoint(Endpoint endpoint) {
-        try {
-            final String statusUrl = String.format("https://%s:8182/status", endpoint.getAddress());
-            final URI uri = URI.create(statusUrl);
-
-            final DefaultRequest<Void> awsRequest = new DefaultRequest<>("neptune-db");
-            awsRequest.setHttpMethod(HttpMethodName.GET);
-            awsRequest.setEndpoint(URI.create(String.format("https://%s:8182", endpoint.getAddress())));
-            awsRequest.setResourcePath("/status");
-
-            final AWS4Signer signer = new AWS4Signer();
-            signer.setServiceName("neptune-db");
-            signer.setRegionName(region);
-            signer.sign(awsRequest, DefaultAWSCredentialsProviderChain.getInstance().getCredentials());
-
-            final HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(uri).timeout(Duration.ofSeconds(5)).GET();
-
-            for (final Map.Entry<String, String> header : awsRequest.getHeaders().entrySet()) {
-                if (!"Host".equalsIgnoreCase(header.getKey())) {
-                    requestBuilder.header(header.getKey(), header.getValue());
-                }
-            }
-
-            final HttpResponse<String> response = httpClient.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() == 200) {
-                final JsonNode jsonNode = objectMapper.readTree(response.body());
-                if (jsonNode.has("status")) {
-                    final boolean healthy = "healthy".equalsIgnoreCase(jsonNode.get("status").asText());
-                    return new ApprovalResult(healthy, healthy ? null : "Status not healthy");
-                }
-                return new ApprovalResult(true, null);
-            }
-            return new ApprovalResult(false, "HTTP " + response.statusCode());
-        } catch (Exception e) {
-            return new ApprovalResult(false, e.getMessage());
+        final Map<String, String> annotations =endpoint.getAnnotations();
+        ApprovalResult approvalResult = ApprovalResult.APPROVED;
+        if (annotations.containsKey(SuspendedEndpoints.STATE_ANNOTATION) && !(annotations.get(SuspendedEndpoints.STATE_ANNOTATION).equals(STATE_HEALTHY))) {
+            approvalResult = new ApprovalResult(false, annotations.get(SuspendedEndpoints.STATE_ANNOTATION));
         }
+        logger.info("Approval result: {}", approvalResult);
+        return approvalResult;
+    }
+
+    @Override
+    public Endpoint enrichEndpoint(Endpoint endpoint) {
+
+        final String statusUrl = String.format("https://%s:8182/status", endpoint.getAddress());
+        final URI endpointUri = URI.create(statusUrl);
+
+        logger.info("Endpoint URI: {}", endpointUri);
+
+        final ClientOverrideConfiguration configuration = ClientOverrideConfiguration.builder()
+                .apiCallTimeout(Duration.ofMillis(timeoutMillis))
+                .build();
+
+        final NeptunedataClient client = NeptunedataClient.builder()
+                .credentialsProvider(credentialsProvider)
+                .region(region)
+                .endpointOverride(endpointUri)
+                .overrideConfiguration(configuration)
+                .build();
+
+        try {
+
+            final GetEngineStatusResponse engineStatus = client.getEngineStatus(GetEngineStatusRequest.builder().build());
+            endpoint.setAnnotation(SuspendedEndpoints.STATE_ANNOTATION, engineStatus.status());
+            logger.info("Endpoint status: {} [{}]", endpointUri, engineStatus.status());
+
+        } catch (ClientTimeoutException e) {
+            endpoint.setAnnotation(SuspendedEndpoints.STATE_ANNOTATION, e.getMessage());
+            logger.warn("Timeout while checking endpoint status: {}", endpointUri);
+        } catch (Exception e) {
+            endpoint.setAnnotation(SuspendedEndpoints.STATE_ANNOTATION, e.getMessage());
+            logger.warn("Error while checking endpoint status: {} [{}:{}]", endpointUri, e.getClass().getSimpleName(), e.getMessage());
+        } finally {
+            client.close();
+        }
+        return endpoint;
     }
 }
