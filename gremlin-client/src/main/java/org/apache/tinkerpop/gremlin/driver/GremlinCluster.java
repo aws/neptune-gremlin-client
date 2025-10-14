@@ -19,8 +19,10 @@ import software.amazon.utils.SoftwareVersion;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
@@ -36,6 +38,7 @@ public class GremlinCluster implements AutoCloseable {
     private final AtomicReference<CompletableFuture<Void>> closing = new AtomicReference<>(null);
     private final EndpointStrategies endpointStrategies;
     private final AcquireConnectionConfig acquireConnectionConfig;
+    private final Map<Class<? extends Exception>, Set<String>> ignoreExceptionsDuringEndpointCreation;
 
     private final MetricsConfig metricsConfig;
 
@@ -44,7 +47,8 @@ public class GremlinCluster implements AutoCloseable {
                           ClusterFactory clusterFactory,
                           EndpointStrategies endpointStrategies,
                           AcquireConnectionConfig acquireConnectionConfig,
-                          MetricsConfig metricsConfig) {
+                          MetricsConfig metricsConfig,
+                          Map<Class<? extends Exception>, Set<String>> ignoreExceptionsDuringEndpointCreation) {
         logger.info("Version: {} {}", SoftwareVersion.FromResource, GitProperties.FromResource);
         logger.info("Created GremlinCluster [defaultEndpoints: {}, enableMetrics: {}]",
                 defaultEndpoints.stream()
@@ -56,6 +60,7 @@ public class GremlinCluster implements AutoCloseable {
         this.endpointStrategies = endpointStrategies;
         this.acquireConnectionConfig = acquireConnectionConfig;
         this.metricsConfig = metricsConfig;
+        this.ignoreExceptionsDuringEndpointCreation = ignoreExceptionsDuringEndpointCreation;
     }
 
     public GremlinClient connect(List<String> addresses, Client.Settings settings) {
@@ -82,10 +87,24 @@ public class GremlinCluster implements AutoCloseable {
         ClientClusterCollection clientClusterCollection = new ClientClusterCollection(clusterFactory, parentCluster);
 
         Map<Endpoint, Cluster> clustersForEndpoints = clientClusterCollection.createClustersForEndpoints(new EndpointCollection(endpoints));
-        List<EndpointClient> newEndpointClients = EndpointClient.create(clustersForEndpoints);
+        List<EndpointClient> newEndpointClients = EndpointClient.create(clustersForEndpoints, this.ignoreExceptionsDuringEndpointCreation);
+        // Some of the clients could have been rejected when the connection is being created
+        // So they should be added to the rejected list.
+        final Set<Endpoint> rejectedEndpoints =  new HashSet<>(clustersForEndpoints.keySet());
+        newEndpointClients.forEach(i -> rejectedEndpoints.remove(i.endpoint()));
+
+        final EndpointCollection rejectedEndpointsCollection = new EndpointCollection( rejectedEndpoints);
+        clientClusterCollection.removeClusterWithMatchingEndpoint(rejectedEndpointsCollection);
+        // validate atleast one endpoint is available otherwise fail !
+
+        if (newEndpointClients.isEmpty()) {
+            throw new EndpointsUnavailableException(List.of("None of the endpoints supplied are available !"));
+        }
+
         EndpointClientCollection endpointClientCollection = new EndpointClientCollection(
                 EndpointClientCollection.builder()
                         .withEndpointClients(newEndpointClients)
+                        .withRejectedEndpoints(rejectedEndpointsCollection)
                         .setCollectMetrics(metricsConfig.enableMetrics()));
 
         clientClusterCollections.add(clientClusterCollection);
@@ -97,7 +116,8 @@ public class GremlinCluster implements AutoCloseable {
                 clientClusterCollection,
                 endpointStrategies,
                 acquireConnectionConfig,
-                metricsConfig
+                metricsConfig,
+                ignoreExceptionsDuringEndpointCreation
         );
     }
 
