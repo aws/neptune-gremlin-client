@@ -22,6 +22,9 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.HashMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -73,6 +76,7 @@ public class GremlinClusterBuilder {
     private OnEagerRefresh onEagerRefresh = null;
     private EndpointFilter endpointFilter;
     private HandshakeInterceptor interceptor = HandshakeInterceptor.NO_OP;
+    private Map<Class<? extends Exception>, Set<String>> ignoreExceptionsDuringEndpointCreation = new HashMap<>();
 
     private TopologyAwareBuilderConfigurator configurator = new TopologyAwareBuilderConfigurator() {
         @Override
@@ -523,6 +527,14 @@ public class GremlinClusterBuilder {
     }
 
     /**
+     * Sets the exceptions to be ignored during Endpoint Creation
+     */
+    public GremlinClusterBuilder ignoreExceptionsDuringEndpointCreation(final Map<Class<? extends Exception>, Set<String>> ignoreExceptionsDuringEndpointCreation) {
+        this.ignoreExceptionsDuringEndpointCreation = ignoreExceptionsDuringEndpointCreation;
+        return this;
+    }
+
+    /**
      * Adds the address of a Gremlin Server to the list of servers a {@link Client} will try to contact to send
      * requests to.  The address should be parseable by {@link InetAddress#getByName(String)}.  That's the only
      * validation performed at this point.  No connection to the host is attempted.
@@ -667,6 +679,6 @@ public class GremlinClusterBuilder {
             configurator.apply(builder, endpoints);
 
             return builder.create();
-        }, endpointStrategies, acquireConnectionConfig, metricsConfig);
+        }, endpointStrategies, acquireConnectionConfig, metricsConfig, ignoreExceptionsDuringEndpointCreation);
     }
 }

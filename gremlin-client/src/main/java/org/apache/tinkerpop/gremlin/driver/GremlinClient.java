@@ -41,6 +41,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
     private final EndpointStrategies endpointStrategies;
     private final AcquireConnectionConfig acquireConnectionConfig;
     private final MetricsConfig metricsConfig;
+    private final Map<Class<? extends Exception>, Set<String>> ignoreExceptionsDuringEndpointCreation;
 
     GremlinClient(Cluster cluster,
                   Settings settings,
@@ -48,7 +49,8 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
                   ClientClusterCollection clientClusterCollection,
                   EndpointStrategies endpointStrategies,
                   AcquireConnectionConfig acquireConnectionConfig,
-                  MetricsConfig metricsConfig) {
+                  MetricsConfig metricsConfig,
+                  Map<Class<? extends Exception>, Set<String>> ignoreExceptionsDuringEndpointCreation) {
         super(cluster, settings);
 
         this.endpointClientCollection.set(endpointClientCollection);
@@ -57,6 +59,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
         this.acquireConnectionConfig = acquireConnectionConfig;
         this.connectionAttemptManager = acquireConnectionConfig.createConnectionAttemptManager(this);
         this.metricsConfig = metricsConfig;
+        this.ignoreExceptionsDuringEndpointCreation = ignoreExceptionsDuringEndpointCreation;
 
         logger.info("availableEndpointFilter: {}", endpointStrategies.endpointFilter());
     }
@@ -108,7 +111,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
 
         EndpointCollection newEndpoints = acceptedEndpoints.getEndpointsWithNoCluster(clientClusterCollection);
         Map<Endpoint, Cluster> newEndpointClusters = clientClusterCollection.createClustersForEndpoints(newEndpoints);
-        List<EndpointClient> newEndpointClients = EndpointClient.create(newEndpointClusters);
+        List<EndpointClient> newEndpointClients = EndpointClient.create(newEndpointClusters, this.ignoreExceptionsDuringEndpointCreation);
 
         EndpointClientCollection newEndpointClientCollection = new EndpointClientCollection(
                 EndpointClientCollection.builder()
