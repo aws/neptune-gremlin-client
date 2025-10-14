@@ -25,7 +25,7 @@ public class EndpointClientTest {
         endpointClusters.put(endpoint2, cluster);
         endpointClusters.put(endpoint3, cluster);
 
-        List<EndpointClient> endpointClients = EndpointClient.create(endpointClusters, c -> client);
+        List<EndpointClient> endpointClients = EndpointClient.create(endpointClusters, c -> client, new HashMap<>());
 
         assertEquals(3, endpointClients.size());
 

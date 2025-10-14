@@ -275,6 +275,14 @@ public class NeptuneGremlinClusterBuilder {
         return this;
     }
 
+    /**
+     * A HashMap containing Exceptions with corresponding signatures to ignore during endpoint creation
+     */
+    public NeptuneGremlinClusterBuilder ignoreExceptionsDuringEndpointCreation(final  Map<Class<? extends Exception>, Set<String>> ignoreExceptionsDuringEndpointCreation) {
+        innerBuilder.ignoreExceptionsDuringEndpointCreation(ignoreExceptionsDuringEndpointCreation);
+        return this;
+    }
+
     public NeptuneGremlinClusterBuilder addContactPoint(final String address) {
         this.endpoints.add(new DatabaseEndpoint().withAddress(address));
         return this;

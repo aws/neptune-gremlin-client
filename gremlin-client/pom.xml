@@ -22,11 +22,12 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <javac.target>1.8</javac.target>
-        <aws.sdk.version>1.12.431</aws.sdk.version>
+        <aws.sdk.version>2.30.17</aws.sdk.version>
+        <aws.sdk.version.v1>1.12.431</aws.sdk.version.v1>
         <gremlin.driver.version>3.6.2</gremlin.driver.version>
         <jackson.databind.version>2.13.4.1</jackson.databind.version>
         <jackson.dataformat.version>2.13.2</jackson.dataformat.version>
-        <sigv4.version>2.4.0</sigv4.version>
+        <sigv4.version>3.1.0</sigv4.version>
     </properties>
     
     <scm>
@@ -80,21 +81,27 @@
         </dependency>
 
         <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>neptunedata</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-core</artifactId>
-            <version>${aws.sdk.version}</version>
+            <version>${aws.sdk.version.v1}</version>
         </dependency>
 
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-neptune</artifactId>
-            <version>${aws.sdk.version}</version>
+            <version>${aws.sdk.version.v1}</version>
         </dependency>
 
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-lambda</artifactId>
-            <version>${aws.sdk.version}</version>
+            <version>${aws.sdk.version.v1}</version>
         </dependency>
 
         <dependency>
@@ -118,8 +125,8 @@
 
         <dependency>
             <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>2.25.0</version>
+            <artifactId>mockito-inline</artifactId>
+            <version>4.8.0</version>
             <scope>test</scope>
         </dependency>
 

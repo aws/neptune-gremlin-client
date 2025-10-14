@@ -33,12 +33,14 @@ public class GremlinCluster implements AutoCloseable {
     private final AtomicReference<CompletableFuture<Void>> closing = new AtomicReference<>(null);
     private final EndpointStrategies endpointStrategies;
     private final AcquireConnectionConfig acquireConnectionConfig;
+    private final Map<Class<? extends Exception>, Set<String>> ignoreExceptionsDuringEndpointCreation;
 
 
     public GremlinCluster(Collection<Endpoint> defaultEndpoints,
                           ClusterFactory clusterFactory,
                           EndpointStrategies endpointStrategies,
-                          AcquireConnectionConfig acquireConnectionConfig) {
+                          AcquireConnectionConfig acquireConnectionConfig,
+                          Map<Class<? extends Exception>, Set<String>> ignoreExceptionsDuringEndpointCreation) {
         logger.info("Version: {} {}", SoftwareVersion.FromResource, GitProperties.FromResource);
         logger.info("Created GremlinCluster, defaultEndpoints: {}", defaultEndpoints.stream()
                 .map(Endpoint::getAddress)
@@ -47,6 +49,7 @@ public class GremlinCluster implements AutoCloseable {
         this.clusterFactory = clusterFactory;
         this.endpointStrategies = endpointStrategies;
         this.acquireConnectionConfig = acquireConnectionConfig;
+        this.ignoreExceptionsDuringEndpointCreation = ignoreExceptionsDuringEndpointCreation;
     }
 
     public GremlinClient connect(List<String> addresses, Client.Settings settings) {
@@ -71,15 +74,24 @@ public class GremlinCluster implements AutoCloseable {
         Cluster parentCluster = clusterFactory.createCluster(null);
 
         ClientClusterCollection clientClusterCollection = new ClientClusterCollection(clusterFactory, parentCluster);
-        List<EndpointClient> endpointClientList = new ArrayList<>();
 
-        for (Endpoint endpoint : endpoints) {
-            Cluster cluster = clientClusterCollection.createClusterForEndpoint(endpoint);
-            Client client = cluster.connect().init();
-            endpointClientList.add(new EndpointClient(endpoint, client));
+        Map<Endpoint, Cluster> clustersForEndpoints = clientClusterCollection.createClustersForEndpoints(new EndpointCollection(endpoints));
+        List<EndpointClient> newEndpointClients = EndpointClient.create(clustersForEndpoints, this.ignoreExceptionsDuringEndpointCreation);
+        // Some of the clients could have been rejected when the connection is being created
+        // So they should be added to the rejected list.
+        final Set<Endpoint> rejectedEndpoints =  new HashSet<>(clustersForEndpoints.keySet());
+        newEndpointClients.forEach(i -> rejectedEndpoints.remove(i.endpoint()));
+
+        final EndpointCollection rejectedEndpointsCollection = new EndpointCollection( rejectedEndpoints);
+        clientClusterCollection.removeClusterWithMatchingEndpoint(rejectedEndpointsCollection);
+        // validate atleast one endpoint is available otherwise fail !
+
+        if (newEndpointClients.isEmpty()) {
+            throw new EndpointsUnavailableException(List.of("None of the endpoints supplied are available !"));
         }
 
-        EndpointClientCollection endpointClientCollection = new EndpointClientCollection(endpointClientList);
+        EndpointClientCollection endpointClientCollection = new EndpointClientCollection(newEndpointClients,
+                rejectedEndpointsCollection);
 
         clientClusterCollections.add(clientClusterCollection);
 
@@ -90,7 +102,8 @@ public class GremlinCluster implements AutoCloseable {
                 clientClusterCollection,
                 clusterFactory,
                 endpointStrategies,
-                acquireConnectionConfig
+                acquireConnectionConfig,
+                ignoreExceptionsDuringEndpointCreation
         );
     }
 
