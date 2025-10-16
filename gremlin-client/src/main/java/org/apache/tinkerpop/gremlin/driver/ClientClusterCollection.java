@@ -37,8 +37,13 @@ class ClientClusterCollection {
     }
 
     public Cluster createClusterForEndpoint(Endpoint endpoint) {
-        Cluster cluster = clusterFactory.createCluster(new EndpointCollection(Collections.singletonList(endpoint)));
-        clusters.put(endpoint.getAddress(), cluster);
+        Cluster cluster;
+        if (!containsClusterForEndpoint(endpoint)) {
+            cluster = clusterFactory.createCluster(new EndpointCollection(Collections.singletonList(endpoint)));
+            clusters.put(endpoint.getAddress(), cluster);
+        } else {
+            cluster = clusters.get(endpoint.getAddress());
+        }
         return cluster;
     }
 
