@@ -224,6 +224,7 @@ public class GremlinClient extends Client implements Refreshable, AutoCloseable 
         for (EndpointClient endpointClient : endpointClientCollection.get()) {
             futures.add(endpointClient.closeClientAsync());
         }
+        futures.add(clientClusterCollection.closeAsync());
 
         closing.set(CompletableFuture.allOf(futures.toArray(new CompletableFuture[]{})));
 
