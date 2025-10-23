@@ -67,7 +67,7 @@ Without dependencies:
 <dependency>
     <groupId>software.amazon.neptune</groupId>
     <artifactId>gremlin-client</artifactId>
-    <version>3.1.0</version>
+    <version>3.1.1</version>
 </dependency>
 ```
 
@@ -77,7 +77,7 @@ With dependencies (uber-jar):
 <dependency>
     <groupId>software.amazon.neptune</groupId>
     <artifactId>gremlin-client</artifactId>
-    <version>3.1.0</version>
+    <version>3.1.1</version>
     <classifier>jar-with-dependencies</classifier>
 </dependency>
 ```
