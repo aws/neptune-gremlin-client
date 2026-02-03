@@ -22,11 +22,11 @@
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <javac.target>11</javac.target>
-        <aws.sdk.version>2.30.17</aws.sdk.version>
-        <aws.sdk.version.v1>1.12.781</aws.sdk.version.v1>
-        <gremlin.driver.version>3.7.2</gremlin.driver.version>
+        <aws.sdk.version>2.41.20</aws.sdk.version>
+        <aws.sdk.version.v1>1.12.797</aws.sdk.version.v1>
+        <gremlin.driver.version>3.7.3</gremlin.driver.version>
         <jackson.databind.version>2.18.2</jackson.databind.version>
-        <sigv4.version>3.1.0</sigv4.version>
+        <sigv4.version>4.0.0</sigv4.version>
     </properties>
     
     <scm>

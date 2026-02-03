@@ -12,11 +12,6 @@ permissions and limitations under the License.
 
 package org.apache.tinkerpop.gremlin.driver;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.neptune.auth.credentials.V1toV2CredentialsProvider;
-import org.apache.tinkerpop.gremlin.driver.ApprovalResult;
-import org.apache.tinkerpop.gremlin.driver.Endpoint;
-import org.apache.tinkerpop.gremlin.driver.EndpointFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -51,14 +46,6 @@ public class StatusEndpointFilter implements EndpointFilter {
     }
 
     public StatusEndpointFilter(Region region, AwsCredentialsProvider credentialsProvider) {
-        this(region, credentialsProvider, DEFAULT_TIMEOUT_MILLIS);
-    }
-
-    public StatusEndpointFilter(Region region, AWSCredentialsProvider credentialsProvider, long timeoutMillis) {
-        this(region, V1toV2CredentialsProvider.create(credentialsProvider), timeoutMillis);
-    }
-
-    public StatusEndpointFilter(Region region, AWSCredentialsProvider credentialsProvider) {
         this(region, credentialsProvider, DEFAULT_TIMEOUT_MILLIS);
     }
 

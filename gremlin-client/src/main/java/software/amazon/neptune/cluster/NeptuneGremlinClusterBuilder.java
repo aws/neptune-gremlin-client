@@ -17,12 +17,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 package software.amazon.neptune.cluster;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.neptune.auth.credentials.V1toV2CredentialsProvider;
 import io.netty.handler.ssl.SslContext;
 import org.apache.tinkerpop.gremlin.driver.*;
+import org.apache.tinkerpop.gremlin.util.MessageSerializer;
 import org.apache.tinkerpop.gremlin.util.ser.Serializers;
-import org.apache.tinkerpop.gremlin.util.*;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 import java.util.*;
@@ -374,12 +372,6 @@ public class NeptuneGremlinClusterBuilder {
 
     public NeptuneGremlinClusterBuilder handshakeInterceptor(final HandshakeInterceptor interceptor) {
         this.interceptor = interceptor;
-        return this;
-    }
-
-    @Deprecated
-    public NeptuneGremlinClusterBuilder credentials(final AWSCredentialsProvider v1AwsCredentialProvider) {
-        this.credentials = V1toV2CredentialsProvider.create(v1AwsCredentialProvider);
         return this;
     }
 

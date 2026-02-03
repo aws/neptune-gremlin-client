@@ -12,15 +12,22 @@ permissions and limitations under the License.
 
 package software.amazon.neptune.cluster;
 
+import com.evanlennick.retry4j.CallExecutor;
+import com.evanlennick.retry4j.CallExecutorBuilder;
+import com.evanlennick.retry4j.Status;
+import com.evanlennick.retry4j.config.RetryConfig;
+import com.evanlennick.retry4j.config.RetryConfigBuilder;
+import com.evanlennick.retry4j.exception.UnexpectedException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
-import software.amazon.awssdk.core.client.config.SdkClientOption;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.lambda.LambdaClient;
@@ -28,19 +35,8 @@ import software.amazon.awssdk.services.lambda.LambdaClientBuilder;
 import software.amazon.awssdk.services.lambda.model.InvokeRequest;
 import software.amazon.awssdk.services.lambda.model.InvokeResponse;
 import software.amazon.awssdk.services.lambda.model.TooManyRequestsException;
-import com.evanlennick.retry4j.CallExecutor;
-import com.evanlennick.retry4j.CallExecutorBuilder;
-import com.evanlennick.retry4j.Status;
-import com.evanlennick.retry4j.config.RetryConfig;
-import com.evanlennick.retry4j.config.RetryConfigBuilder;
-import com.evanlennick.retry4j.exception.UnexpectedException;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.tinkerpop.gremlin.driver.EndpointCollection;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import software.amazon.utils.RegionUtils;
 
-import java.lang.reflect.Field;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Map;
