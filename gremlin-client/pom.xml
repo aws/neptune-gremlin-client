@@ -19,9 +19,9 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
-        <javac.target>11</javac.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <javac.target>17</javac.target>
         <aws.sdk.version>2.41.20</aws.sdk.version>
         <aws.sdk.version.v1>1.12.797</aws.sdk.version.v1>
         <gremlin.driver.version>3.7.3</gremlin.driver.version>
