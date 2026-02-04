@@ -54,17 +54,6 @@
         </developer>
     </developers>
 
-<!--    <distributionManagement>-->
-<!--        <snapshotRepository>-->
-<!--            <id>ossrh</id>-->
-<!--            <url>https://aws.oss.sonatype.org/content/repositories/snapshots/</url>-->
-<!--        </snapshotRepository>-->
-<!--        <repository>-->
-<!--            <id>ossrh</id>-->
-<!--            <url>https://aws.oss.sonatype.org/content/groups/staging/</url>-->
-<!--        </repository>-->
-<!--    </distributionManagement>-->
-
     <distributionManagement>
         <snapshotRepository>
             <id>central</id>
@@ -191,20 +180,6 @@
                 </executions>
             </plugin>
 
-
-<!--            <plugin>-->
-<!--                <groupId>org.apache.maven.plugins</groupId>-->
-<!--                <artifactId>maven-jar-plugin</artifactId>-->
-<!--                <configuration>-->
-<!--                    <archive>-->
-<!--                        <manifest>-->
-<!--                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>-->
-<!--                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>-->
-<!--                        </manifest>-->
-<!--                    </archive>-->
-<!--                </configuration>-->
-<!--            </plugin>-->
-
             <!-- Package the source jar. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -252,28 +227,6 @@
                     </execution>
                 </executions>
             </plugin>
-
-<!--            <plugin>-->
-<!--                <groupId>org.apache.maven.plugins</groupId>-->
-<!--                <artifactId>maven-shade-plugin</artifactId>-->
-<!--                <version>3.6.0</version>-->
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <phase>package</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>shade</goal>-->
-<!--                        </goals>-->
-<!--                        <configuration>-->
-<!--                            <relocations>-->
-<!--                                <relocation>-->
-<!--                                    <pattern>com.fasterxml.jackson</pattern>-->
-<!--                                    <shadedPattern>shaded.com.fasterxml.jackson</shadedPattern>-->
-<!--                                </relocation>-->
-<!--                            </relocations>-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
-<!--                </executions>-->
-<!--            </plugin>-->
 
             <plugin>
                 <groupId>io.github.git-commit-id</groupId>
@@ -325,27 +278,10 @@
                                 <configuration>
                                     <keyname>${gpg.keyname}</keyname>
                                     <passphrase>${gpg.passphrase}</passphrase>
-                                    <!--                                    <gpgArguments>-->
-                                    <!--                                        <arg>&#45;&#45;pinentry-mode</arg>-->
-                                    <!--                                        <arg>loopback</arg>-->
-                                    <!--                                    </gpgArguments>-->
                                 </configuration>
                             </execution>
                         </executions>
                     </plugin>
-
-                    <!-- Publish the artifacts. -->
-<!--                    <plugin>-->
-<!--                        <groupId>org.sonatype.plugins</groupId>-->
-<!--                        <artifactId>nexus-staging-maven-plugin</artifactId>-->
-<!--                        <version>1.6.14</version>-->
-<!--                        <extensions>true</extensions>-->
-<!--                        <configuration>-->
-<!--                            <serverId>ossrh</serverId>-->
-<!--                            <nexusUrl>https://aws.oss.sonatype.org/</nexusUrl>-->
-<!--                            <autoReleaseAfterClose>true</autoReleaseAfterClose>-->
-<!--                        </configuration>-->
-<!--                    </plugin>-->
 
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
