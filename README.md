@@ -14,6 +14,10 @@ As of release 3.1.0, the Neptune Gremlin Client is built with and without depend
 
 Version 3.x of the Neptune Gremlin Client now supports the AWS SDK for Java 2.x. Methods that accept version 1.x objects such as `AWSCredentialsProvider` have been deprecated and will be removed ina future version.
 
+## Removing AWS SDK for Java 1.x
+
+AWS Java SDK v1 reached full end of support on December 31st, 2025. Version 4.0.0 removes support for the AWS SDK for Java 1.x.
+
 ## Example
 
 The following example shows how to build a `GremlinClient` that connects to and round-robins requests across all available Neptune serverless instances that have been tagged "analytics". The list of endpoints that match this selection criteria is refreshed every 60 seconds. The refresh agent that updates the list of endpoints uses an AWS Lambda proxy function to retrieve details of the Neptune database's cluster topology.
@@ -67,7 +71,7 @@ Without dependencies:
 <dependency>
     <groupId>software.amazon.neptune</groupId>
     <artifactId>gremlin-client</artifactId>
-    <version>3.1.1</version>
+    <version>4.0.0</version>
 </dependency>
 ```
 
@@ -77,7 +81,7 @@ With dependencies (uber-jar):
 <dependency>
     <groupId>software.amazon.neptune</groupId>
     <artifactId>gremlin-client</artifactId>
-    <version>3.1.1</version>
+    <version>4.0.0</version>
     <classifier>jar-with-dependencies</classifier>
 </dependency>
 ```
