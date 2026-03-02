@@ -23,7 +23,6 @@
         <maven.compiler.target>17</maven.compiler.target>
         <javac.target>17</javac.target>
         <aws.sdk.version>2.41.20</aws.sdk.version>
-        <aws.sdk.version.v1>1.12.797</aws.sdk.version.v1>
         <gremlin.driver.version>3.7.3</gremlin.driver.version>
         <jackson.databind.version>2.18.2</jackson.databind.version>
         <sigv4.version>4.0.0</sigv4.version>
@@ -106,24 +105,6 @@
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>lambda</artifactId>
             <version>${aws.sdk.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-core</artifactId>
-            <version>${aws.sdk.version.v1}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-neptune</artifactId>
-            <version>${aws.sdk.version.v1}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-lambda</artifactId>
-            <version>${aws.sdk.version.v1}</version>
         </dependency>
 
         <dependency>
