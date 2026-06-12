@@ -164,7 +164,7 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(ClusterEndpointsRefreshAgent.class);
 
     private final ClusterEndpointsFetchStrategy endpointsFetchStrategy;
-    private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+    private ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 
     private AtomicBoolean isRunning = new AtomicBoolean(false);
 
@@ -197,6 +197,10 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
             throw new IllegalStateException("Refresh agent is already running");
         }
 
+        if (scheduledExecutorService.isShutdown()) {
+            scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        }
+
         PollingCommand pollingCommand = new PollingCommand(tasks, this::refreshEndpoints);
 
         scheduledExecutorService.scheduleWithFixedDelay(pollingCommand, delay, delay, timeUnit);
@@ -205,6 +209,10 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
     public void startPollingNeptuneAPI(OnNewClusterMetadata onNewClusterMetadata,
                                        long delay,
                                        TimeUnit timeUnit) {
+
+        if (scheduledExecutorService.isShutdown()) {
+            scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        }
 
         scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -220,6 +228,7 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
 
     public void stop() {
         scheduledExecutorService.shutdownNow();
+        isRunning.set(false);
     }
 
     @Override
