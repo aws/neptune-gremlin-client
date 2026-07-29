@@ -18,6 +18,17 @@ Version 3.x of the Neptune Gremlin Client now supports the AWS SDK for Java 2.x.
 
 AWS Java SDK v1 reached full end of support on December 31st, 2025. Version 4.0.0 removes support for the AWS SDK for Java 1.x.
 
+## Apache TinkerPop compatibility
+
+The major version of the Neptune Gremlin Client tracks the Apache TinkerPop `gremlin-driver` minor version it is built against:
+
+| Neptune Gremlin Client | Apache TinkerPop `gremlin-driver` |
+|---|---|
+| 4.x | 3.7.x |
+| 5.x | 3.8.x |
+
+These lines are maintained on separate branches: `4.x-dev` (4.x / TinkerPop 3.7.x) and `main` (5.x / TinkerPop 3.8.x). Choose the client major version whose TinkerPop line matches your application's `gremlin-driver` version.
+
 ## Example
 
 The following example shows how to build a `GremlinClient` that connects to and round-robins requests across all available Neptune serverless instances that have been tagged "analytics". The list of endpoints that match this selection criteria is refreshed every 60 seconds. The refresh agent that updates the list of endpoints uses an AWS Lambda proxy function to retrieve details of the Neptune database's cluster topology.
