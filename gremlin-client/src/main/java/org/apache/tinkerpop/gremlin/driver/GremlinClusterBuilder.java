@@ -76,13 +76,13 @@ public class GremlinClusterBuilder {
     private int acquireConnectionBackoffMillis = 5;
     private OnEagerRefresh onEagerRefresh = null;
     private EndpointFilter endpointFilter;
-    private HandshakeInterceptor interceptor = HandshakeInterceptor.NO_OP;
+    private RequestInterceptor interceptor = RequestInterceptor.NO_OP;
     private Map<Class<? extends Exception>, Set<String>> ignoreExceptionsDuringEndpointCreation = new HashMap<>();
 
     private TopologyAwareBuilderConfigurator configurator = new TopologyAwareBuilderConfigurator() {
         @Override
         public void apply(Cluster.Builder builder, EndpointCollection endpoints) {
-            builder.handshakeInterceptor(interceptor);
+            builder.requestInterceptor(interceptor);
             if (endpoints != null && !endpoints.isEmpty()) {
                 for (Endpoint endpoint : endpoints) {
                     builder.addContactPoint(endpoint.getAddress());
@@ -604,12 +604,23 @@ public class GremlinClusterBuilder {
     }
 
     /**
-     * Specifies an {@link HandshakeInterceptor} that will allow manipulation of the
-     * {@code FullHttpRequest} prior to its being sent over the websocket.
+     * Specifies a {@link RequestInterceptor} that will allow manipulation of the
+     * {@code FullHttpRequest} prior to its being sent to the server.
      */
-    public GremlinClusterBuilder handshakeInterceptor(final HandshakeInterceptor interceptor) {
+    public GremlinClusterBuilder requestInterceptor(final RequestInterceptor interceptor) {
         this.interceptor = interceptor;
         return this;
+    }
+
+    /**
+     * @deprecated As of TinkerPop 3.6.6, {@code handshakeInterceptor} is deprecated in
+     * favor of {@link #requestInterceptor(RequestInterceptor)}. This method is retained
+     * for backward compatibility and delegates to {@code requestInterceptor}; it will be
+     * removed in a future major release.
+     */
+    @Deprecated
+    public GremlinClusterBuilder handshakeInterceptor(final HandshakeInterceptor interceptor) {
+        return requestInterceptor(interceptor::apply);
     }
 
     List<InetSocketAddress> getContactPoints() {

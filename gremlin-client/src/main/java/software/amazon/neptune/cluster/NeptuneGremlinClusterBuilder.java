@@ -44,7 +44,7 @@ public class NeptuneGremlinClusterBuilder {
     private int proxyPort = 80;
     private String iamProfile = IamAuthConfig.DEFAULT_PROFILE;
     private String serviceRegion = "";
-    private HandshakeInterceptor interceptor = null;
+    private RequestInterceptor interceptor = null;
     private AwsCredentialsProvider credentials = null;
     private EndpointFilter endpointFilter = new SuspendedEndpoints();
 
@@ -370,9 +370,20 @@ public class NeptuneGremlinClusterBuilder {
     }
 
 
-    public NeptuneGremlinClusterBuilder handshakeInterceptor(final HandshakeInterceptor interceptor) {
+    public NeptuneGremlinClusterBuilder requestInterceptor(final RequestInterceptor interceptor) {
         this.interceptor = interceptor;
         return this;
+    }
+
+    /**
+     * @deprecated As of TinkerPop 3.6.6, {@code handshakeInterceptor} is deprecated in
+     * favor of {@link #requestInterceptor(RequestInterceptor)}. This method is retained
+     * for backward compatibility and delegates to {@code requestInterceptor}; it will be
+     * removed in a future major release.
+     */
+    @Deprecated
+    public NeptuneGremlinClusterBuilder handshakeInterceptor(final HandshakeInterceptor interceptor) {
+        return requestInterceptor(interceptor::apply);
     }
 
     public NeptuneGremlinClusterBuilder credentials(final AwsCredentialsProvider credentials) {
@@ -421,7 +432,7 @@ public class NeptuneGremlinClusterBuilder {
             innerBuilder.addContactPoint(endpoint);
         }
 
-        TopologyAwareBuilderConfigurator configurator = new HandshakeInterceptorConfigurator(
+        TopologyAwareBuilderConfigurator configurator = new RequestInterceptorConfigurator(
                 isDirectConnection(),
                 interceptor,
                 enableIamAuth,

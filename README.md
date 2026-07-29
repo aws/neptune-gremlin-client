@@ -582,13 +582,13 @@ GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
         .create();
 ```
 
-The client includes a load balancer-aware handshake interceptor that will [sign requests and adjust HTTP headers as necessary](https://github.com/aws-samples/aws-dbs-refarch-graph/tree/master/src/connecting-using-a-load-balancer). However, you can replace this interceptor with your own implementation:
+The client includes a load balancer-aware request interceptor that will [sign requests and adjust HTTP headers as necessary](https://github.com/aws-samples/aws-dbs-refarch-graph/tree/master/src/connecting-using-a-load-balancer). However, you can replace this interceptor with your own implementation:
 
 ```
 GremlinCluster cluster = NeptuneGremlinClusterBuilder.build()
 				.enableIamAuth(true)
         .addContactPoint("reader-1")
-        .handshakeInterceptor(r -> { 
+        .requestInterceptor(r -> { 
               NeptuneNettyHttpSigV4Signer sigV4Signer = new NeptuneNettyHttpSigV4Signer(
                     "eu-west-1", 
                     AwsCredentialsProviderChain.of(DefaultCredentialsProvider.create())

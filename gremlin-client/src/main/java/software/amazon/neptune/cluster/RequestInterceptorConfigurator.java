@@ -22,10 +22,10 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 import java.util.stream.Collectors;
 
-class HandshakeInterceptorConfigurator implements TopologyAwareBuilderConfigurator {
+class RequestInterceptorConfigurator implements TopologyAwareBuilderConfigurator {
 
     private final boolean isDirectConnection;
-    private final HandshakeInterceptor interceptor;
+    private final RequestInterceptor interceptor;
     private final boolean enableIamAuth;
     private final int port;
     private final int proxyPort;
@@ -36,8 +36,8 @@ class HandshakeInterceptorConfigurator implements TopologyAwareBuilderConfigurat
 
     private final boolean removeHostHeader;
 
-    HandshakeInterceptorConfigurator(boolean isDirectConnection,
-                                     HandshakeInterceptor interceptor,
+    RequestInterceptorConfigurator(boolean isDirectConnection,
+                                     RequestInterceptor interceptor,
                                      boolean enableIamAuth,
                                      int port,
                                      int proxyPort,
@@ -77,7 +77,7 @@ class HandshakeInterceptorConfigurator implements TopologyAwareBuilderConfigurat
         }
 
         if (interceptor != null) {
-            builder.handshakeInterceptor(interceptor);
+            builder.requestInterceptor(interceptor);
         } else {
 
             IamAuthConfig.IamAuthConfigBuilder iamAuthConfigBuilder =
@@ -102,7 +102,7 @@ class HandshakeInterceptorConfigurator implements TopologyAwareBuilderConfigurat
 
             IamAuthConfig iamAuthConfig = iamAuthConfigBuilder.build();
 
-            builder.handshakeInterceptor(new LBAwareHandshakeInterceptor(iamAuthConfig));
+            builder.requestInterceptor(new LBAwareRequestInterceptor(iamAuthConfig));
         }
     }
 }

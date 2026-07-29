@@ -21,21 +21,21 @@ import com.amazonaws.neptune.auth.NeptuneNettyHttpSigV4Signer;
 import com.amazonaws.neptune.auth.NeptuneSigV4SignerException;
 import io.netty.handler.codec.http.FullHttpRequest;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.tinkerpop.gremlin.driver.HandshakeInterceptor;
+import org.apache.tinkerpop.gremlin.driver.RequestInterceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.utils.RegionUtils;
 
-class LBAwareHandshakeInterceptor implements HandshakeInterceptor {
+class LBAwareRequestInterceptor implements RequestInterceptor {
 
-    private static final Logger logger = LoggerFactory.getLogger(LBAwareHandshakeInterceptor.class);
+    private static final Logger logger = LoggerFactory.getLogger(LBAwareRequestInterceptor.class);
 
     private final IamAuthConfig iamAuthConfig;
     private final String serviceRegion;
 
     private final NeptuneNettyHttpSigV4Signer sigV4Signer;
 
-    LBAwareHandshakeInterceptor(IamAuthConfig iamAuthConfig) {
+    LBAwareRequestInterceptor(IamAuthConfig iamAuthConfig) {
         this.iamAuthConfig = iamAuthConfig;
         this.serviceRegion = getServiceRegion();
         this.sigV4Signer = createSigV4Signer();
