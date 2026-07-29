@@ -612,17 +612,6 @@ public class GremlinClusterBuilder {
         return this;
     }
 
-    /**
-     * @deprecated As of TinkerPop 3.6.6, {@code handshakeInterceptor} is deprecated in
-     * favor of {@link #requestInterceptor(RequestInterceptor)}. This method is retained
-     * for backward compatibility and delegates to {@code requestInterceptor}; it will be
-     * removed in a future major release.
-     */
-    @Deprecated
-    public GremlinClusterBuilder handshakeInterceptor(final HandshakeInterceptor interceptor) {
-        return requestInterceptor(interceptor::apply);
-    }
-
     List<InetSocketAddress> getContactPoints() {
         return endpoints.stream().map(e -> new InetSocketAddress(e.getAddress(), port)).collect(Collectors.toList());
     }

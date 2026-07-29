@@ -375,17 +375,6 @@ public class NeptuneGremlinClusterBuilder {
         return this;
     }
 
-    /**
-     * @deprecated As of TinkerPop 3.6.6, {@code handshakeInterceptor} is deprecated in
-     * favor of {@link #requestInterceptor(RequestInterceptor)}. This method is retained
-     * for backward compatibility and delegates to {@code requestInterceptor}; it will be
-     * removed in a future major release.
-     */
-    @Deprecated
-    public NeptuneGremlinClusterBuilder handshakeInterceptor(final HandshakeInterceptor interceptor) {
-        return requestInterceptor(interceptor::apply);
-    }
-
     public NeptuneGremlinClusterBuilder credentials(final AwsCredentialsProvider credentials) {
         this.credentials = credentials;
         return this;
