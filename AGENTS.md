@@ -15,6 +15,22 @@ balancer.
 Coordinates: `software.amazon.neptune:neptune-gremlin-client`. The current
 version is defined in the root `pom.xml`.
 
+## Release branches
+
+This repository maintains two long-lived release branches:
+
+- **`main`** — the next **major** release line (currently `5.0.0-SNAPSHOT`).
+  Breaking changes land here, including the eventual removal of APIs that are
+  only retained as deprecated shims on the `4.x` line.
+- **`4.x-dev`** — the **4.x** release line (currently `4.0.3-SNAPSHOT`). Changes
+  here must remain backward compatible; deprecate rather than remove public API.
+
+`4.x-dev` **merges up into `main`**: fixes and features are developed on
+`4.x-dev` (keeping 4.x backward compatible) and then merged into `main`, where
+breaking follow-ups (such as removing deprecated methods) may be applied. When
+targeting a change, branch from and raise it against `4.x-dev` unless it is
+inherently major/breaking, in which case target `main` directly.
+
 ## Module layout
 
 This is a multi-module Maven project. The root `pom.xml` (packaging `pom`)
