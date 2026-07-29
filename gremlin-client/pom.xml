@@ -6,7 +6,7 @@
     <groupId>software.amazon.neptune</groupId>
     <artifactId>gremlin-client</artifactId>
     <packaging>jar</packaging>
-    <version>4.0.2</version>
+    <version>4.0.3-SNAPSHOT</version>
 
     <modelVersion>4.0.0</modelVersion>
 
@@ -23,7 +23,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <javac.target>17</javac.target>
         <aws.sdk.version>2.41.20</aws.sdk.version>
-        <gremlin.driver.version>3.7.3</gremlin.driver.version>
+        <gremlin.driver.version>3.7.6</gremlin.driver.version>
         <jackson.databind.version>2.18.2</jackson.databind.version>
         <sigv4.version>4.0.0</sigv4.version>
     </properties>
