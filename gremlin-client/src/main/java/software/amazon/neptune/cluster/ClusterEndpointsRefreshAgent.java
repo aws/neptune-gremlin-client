@@ -164,7 +164,7 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(ClusterEndpointsRefreshAgent.class);
 
-    private static final long TERMINATION_TIMEOUT_MILLIS = 5000;
+    private static final long DEFAULT_TERMINATION_TIMEOUT_MILLIS = 5000;
 
     private final ClusterEndpointsFetchStrategy endpointsFetchStrategy;
     private final Object executorServiceLock = new Object();
@@ -227,7 +227,25 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
         }, delay, timeUnit);
     }
 
+    /**
+     * Stops polling, waiting up to 5 seconds for the in-flight polling task to terminate.
+     * Use {@link #stop(long, TimeUnit)} to supply a different timeout.
+     */
     public void stop() {
+        stop(DEFAULT_TERMINATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Stops polling and waits for the in-flight polling task to terminate.
+     * <p>
+     * Waiting for termination ensures a subsequent call to {@code startPollingNeptuneAPI} cannot run a
+     * new polling task alongside the old one. Pass a timeout of zero to return without waiting, at the
+     * risk of the old and new tasks overlapping.
+     *
+     * @param timeout  the maximum time to wait for the polling task to terminate
+     * @param timeUnit the unit of the {@code timeout} argument
+     */
+    public void stop(long timeout, TimeUnit timeUnit) {
 
         ScheduledExecutorService executorService;
 
@@ -236,8 +254,13 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
             executorService.shutdownNow();
         }
 
+        if (timeout <= 0) {
+            isRunning.set(false);
+            return;
+        }
+
         try {
-            if (!executorService.awaitTermination(TERMINATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
+            if (!executorService.awaitTermination(timeout, timeUnit)) {
                 logger.warn("Timed out waiting for the polling task to terminate");
             }
         } catch (InterruptedException e) {

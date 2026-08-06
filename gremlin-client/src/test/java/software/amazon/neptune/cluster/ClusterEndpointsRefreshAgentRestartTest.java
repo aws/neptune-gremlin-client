@@ -38,8 +38,29 @@ public class ClusterEndpointsRefreshAgentRestartTest {
     private static final long AWAIT_TIMEOUT_SECONDS = 10;
     private static final long POLLING_DELAY_MILLIS = 50;
 
+    /**
+     * Stops an agent that is midway through polling, then restarts it and asserts that polling resumes.
+     */
+    private interface StopAction {
+        void stop(ClusterEndpointsRefreshAgent agent);
+    }
+
     @Test
     public void shouldResumePollingAfterStopAndRestart() throws InterruptedException {
+        assertResumesPollingAfterRestart(ClusterEndpointsRefreshAgent::stop);
+    }
+
+    @Test
+    public void shouldResumePollingWhenStoppedWithAnExplicitTimeout() throws InterruptedException {
+        assertResumesPollingAfterRestart(agent -> agent.stop(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+    }
+
+    @Test
+    public void shouldResumePollingWhenStoppedWithoutWaiting() throws InterruptedException {
+        assertResumesPollingAfterRestart(agent -> agent.stop(0, TimeUnit.MILLISECONDS));
+    }
+
+    private void assertResumesPollingAfterRestart(StopAction stopAction) throws InterruptedException {
 
         EndpointCollection endpoints = new EndpointCollection();
 
@@ -69,7 +90,7 @@ public class ClusterEndpointsRefreshAgentRestartTest {
             assertTrue("Agent should poll before being stopped",
                     polled.get().await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
 
-            agent.stop();
+            stopAction.stop(agent);
 
             polled.set(new CountDownLatch(1));
 
