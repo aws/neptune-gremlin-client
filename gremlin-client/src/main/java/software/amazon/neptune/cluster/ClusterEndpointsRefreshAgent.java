@@ -25,6 +25,7 @@ import software.amazon.utils.RegionUtils;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -163,8 +164,12 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(ClusterEndpointsRefreshAgent.class);
 
+    private static final long TERMINATION_TIMEOUT_MILLIS = 5000;
+
     private final ClusterEndpointsFetchStrategy endpointsFetchStrategy;
-    private ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+    private final Object executorServiceLock = new Object();
+
+    private volatile ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 
     private AtomicBoolean isRunning = new AtomicBoolean(false);
 
@@ -197,24 +202,20 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
             throw new IllegalStateException("Refresh agent is already running");
         }
 
-        if (scheduledExecutorService.isShutdown()) {
-            scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        }
-
-        PollingCommand pollingCommand = new PollingCommand(tasks, this::refreshEndpoints);
-
-        scheduledExecutorService.scheduleWithFixedDelay(pollingCommand, delay, delay, timeUnit);
+        schedule(new PollingCommand(tasks, this::refreshEndpoints), delay, timeUnit);
     }
 
     public void startPollingNeptuneAPI(OnNewClusterMetadata onNewClusterMetadata,
                                        long delay,
                                        TimeUnit timeUnit) {
 
-        if (scheduledExecutorService.isShutdown()) {
-            scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        boolean isAlreadyRunning = !isRunning.compareAndSet(false, true);
+
+        if (isAlreadyRunning) {
+            throw new IllegalStateException("Refresh agent is already running");
         }
 
-        scheduledExecutorService.scheduleWithFixedDelay(() -> {
+        schedule(() -> {
             try {
                 NeptuneClusterMetadata clusterMetadata = refreshClusterMetadata();
                 logger.info("New cluster metadata: {}", clusterMetadata);
@@ -223,12 +224,28 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
                 logger.error("Error while refreshing cluster metadata", e);
             }
 
-        }, delay, delay, timeUnit);
+        }, delay, timeUnit);
     }
 
     public void stop() {
-        scheduledExecutorService.shutdownNow();
-        isRunning.set(false);
+
+        ScheduledExecutorService executorService;
+
+        synchronized (executorServiceLock) {
+            executorService = scheduledExecutorService;
+            executorService.shutdownNow();
+        }
+
+        try {
+            if (!executorService.awaitTermination(TERMINATION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
+                logger.warn("Timed out waiting for the polling task to terminate");
+            }
+        } catch (InterruptedException e) {
+            logger.warn("Interrupted while waiting for the polling task to terminate");
+            Thread.currentThread().interrupt();
+        } finally {
+            isRunning.set(false);
+        }
     }
 
     @Override
@@ -245,8 +262,31 @@ public class ClusterEndpointsRefreshAgent implements AutoCloseable {
     }
 
     public void awake() throws InterruptedException, ExecutionException {
-        this.scheduledExecutorService.submit(() -> {
-        }).get();
+        Future<?> future;
+
+        synchronized (executorServiceLock) {
+            future = activeExecutorService().submit(() -> {
+            });
+        }
+
+        future.get();
+    }
+
+    private void schedule(Runnable command, long delay, TimeUnit timeUnit) {
+        synchronized (executorServiceLock) {
+            activeExecutorService().scheduleWithFixedDelay(command, delay, delay, timeUnit);
+        }
+    }
+
+    /**
+     * Returns the current executor service, recreating it if it has been shut down by a previous call to
+     * {@link #stop()}. Callers must hold {@link #executorServiceLock}.
+     */
+    private ScheduledExecutorService activeExecutorService() {
+        if (scheduledExecutorService.isShutdown()) {
+            scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        }
+        return scheduledExecutorService;
     }
 
     private Map<? extends EndpointsSelector, EndpointCollection> refreshEndpoints(Map<EndpointsSelector, Collection<GremlinClient>> clientSelectors) {

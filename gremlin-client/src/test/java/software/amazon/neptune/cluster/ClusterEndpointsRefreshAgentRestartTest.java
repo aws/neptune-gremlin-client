@@ -1,18 +1,13 @@
 /*
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this
-software and associated documentation files (the "Software"), to deal in the Software
-without restriction, including without limitation the rights to use, copy, modify,
-merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+Licensed under the Apache License, Version 2.0 (the "License").
+You may not use this file except in compliance with the License.
+A copy of the License is located at
+    http://www.apache.org/licenses/LICENSE-2.0
+or in the "license" file accompanying this file. This file is distributed
+on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+express or implied. See the License for the specific language governing
+permissions and limitations under the License.
 */
 
 package software.amazon.neptune.cluster;
@@ -26,15 +21,71 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class ClusterEndpointsRefreshAgentRestartTest {
 
+    private static final long AWAIT_TIMEOUT_SECONDS = 10;
+    private static final long POLLING_DELAY_MILLIS = 50;
+
     @Test
-    public void shouldSupportStopAndRestart() {
+    public void shouldResumePollingAfterStopAndRestart() throws InterruptedException {
+
+        EndpointCollection endpoints = new EndpointCollection();
+
+        // Swapped for a fresh latch after the restart, so the second await can only be
+        // satisfied by a poll that happened on the recreated executor.
+        AtomicReference<CountDownLatch> polled = new AtomicReference<>(new CountDownLatch(1));
+
+        ClusterEndpointsFetchStrategy strategy = mock(ClusterEndpointsFetchStrategy.class);
+        when(strategy.getEndpoints(anyMap(), anyBoolean())).thenAnswer(invocation -> {
+            Map<EndpointsSelector, EndpointCollection> results = new HashMap<>();
+            results.put(EndpointsType.ClusterEndpoint, endpoints);
+            polled.get().countDown();
+            return results;
+        });
+
+        ClusterEndpointsRefreshAgent agent = new ClusterEndpointsRefreshAgent(strategy);
+
+        GremlinClient client = mock(GremlinClient.class);
+
+        Collection<RefreshTask> tasks = Collections.singletonList(
+                new RefreshTask(client, EndpointsType.ClusterEndpoint)
+        );
+
+        try {
+            agent.startPollingNeptuneAPI(tasks, POLLING_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+
+            assertTrue("Agent should poll before being stopped",
+                    polled.get().await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+
+            agent.stop();
+
+            polled.set(new CountDownLatch(1));
+
+            agent.startPollingNeptuneAPI(tasks, POLLING_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+
+            assertTrue("Agent should resume polling after being restarted",
+                    polled.get().await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+        } finally {
+            agent.stop();
+        }
+
+        verify(client, atLeastOnce()).refreshEndpoints(endpoints);
+    }
+
+    @Test
+    public void shouldSupportAwakeAfterStop() throws Exception {
 
         ClusterEndpointsFetchStrategy strategy = mock(ClusterEndpointsFetchStrategy.class);
         ClusterEndpointsRefreshAgent agent = new ClusterEndpointsRefreshAgent(strategy);
@@ -49,9 +100,7 @@ public class ClusterEndpointsRefreshAgentRestartTest {
         agent.stop();
 
         try {
-            agent.startPollingNeptuneAPI(tasks, 1, TimeUnit.SECONDS);
-        } catch (IllegalStateException | java.util.concurrent.RejectedExecutionException e) {
-            fail("Should be able to restart after stop, but got: " + e.getMessage());
+            agent.awake();
         } finally {
             agent.stop();
         }
@@ -72,6 +121,23 @@ public class ClusterEndpointsRefreshAgentRestartTest {
         try {
             agent.startPollingNeptuneAPI(tasks, 1, TimeUnit.SECONDS);
             agent.startPollingNeptuneAPI(tasks, 1, TimeUnit.SECONDS);
+        } finally {
+            agent.stop();
+        }
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void shouldThrowIfClusterMetadataPollingStartedWhileAlreadyRunning() {
+
+        ClusterEndpointsFetchStrategy strategy = mock(ClusterEndpointsFetchStrategy.class);
+        ClusterEndpointsRefreshAgent agent = new ClusterEndpointsRefreshAgent(strategy);
+
+        OnNewClusterMetadata onNewClusterMetadata = metadata -> {
+        };
+
+        try {
+            agent.startPollingNeptuneAPI(onNewClusterMetadata, 1, TimeUnit.SECONDS);
+            agent.startPollingNeptuneAPI(onNewClusterMetadata, 1, TimeUnit.SECONDS);
         } finally {
             agent.stop();
         }
