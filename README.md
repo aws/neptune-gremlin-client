@@ -82,7 +82,7 @@ Without dependencies:
 <dependency>
     <groupId>software.amazon.neptune</groupId>
     <artifactId>gremlin-client</artifactId>
-    <version>4.0.0</version>
+    <version>4.0.3</version>
 </dependency>
 ```
 
@@ -92,7 +92,7 @@ With dependencies (uber-jar):
 <dependency>
     <groupId>software.amazon.neptune</groupId>
     <artifactId>gremlin-client</artifactId>
-    <version>4.0.0</version>
+    <version>4.0.3</version>
     <classifier>jar-with-dependencies</classifier>
 </dependency>
 ```
