@@ -86,6 +86,25 @@ public class GremlinCluster implements AutoCloseable {
 
         ClientClusterCollection clientClusterCollection = new ClientClusterCollection(clusterFactory, parentCluster);
 
+        // The parent and endpoint clusters own event loops and thread pools from the moment they are
+        // created, and GremlinCluster.close() reaches them only once the collection is registered.
+        // If connecting fails, close them here, or nothing ever will.
+        try {
+            return connectWithCollection(endpoints, settings, clientClusterCollection);
+        } catch (Throwable e) {
+            try {
+                clientClusterCollection.closeAsync().join();
+            } catch (RuntimeException | Error closeFailure) {
+                e.addSuppressed(closeFailure);
+            }
+            throw e;
+        }
+    }
+
+    private GremlinClient connectWithCollection(Collection<Endpoint> endpoints,
+                                                Client.Settings settings,
+                                                ClientClusterCollection clientClusterCollection) {
+
         Map<Endpoint, Cluster> clustersForEndpoints = clientClusterCollection.createClustersForEndpoints(new EndpointCollection(endpoints));
         List<EndpointClient> newEndpointClients = EndpointClient.create(clustersForEndpoints, this.ignoreExceptionsDuringEndpointCreation);
         // Some of the clients could have been rejected when the connection is being created
@@ -107,9 +126,7 @@ public class GremlinCluster implements AutoCloseable {
                         .withRejectedEndpoints(rejectedEndpointsCollection)
                         .setCollectMetrics(metricsConfig.enableMetrics()));
 
-        clientClusterCollections.add(clientClusterCollection);
-
-        return new GremlinClient(
+        GremlinClient client = new GremlinClient(
                 clientClusterCollection.getParentCluster(),
                 settings,
                 endpointClientCollection,
@@ -119,6 +136,10 @@ public class GremlinCluster implements AutoCloseable {
                 metricsConfig,
                 ignoreExceptionsDuringEndpointCreation
         );
+
+        clientClusterCollections.add(clientClusterCollection);
+
+        return client;
     }
 
     public GremlinClient connect(List<String> addresses) {
